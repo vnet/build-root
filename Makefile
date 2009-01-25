@@ -26,8 +26,8 @@
 ######################################################################
 
 # Where this makefile lives
-MU_BUILD_DIR = $(shell pwd)
-MU_BUILD_NAME = $(shell basename $(MU_BUILD_DIR))
+MU_BUILD_ROOT_DIR = $(shell pwd)
+MU_BUILD_NAME = $(shell basename $(MU_BUILD_ROOT_DIR))
 
 # Search path (e.g. multiple directories) where sources are found.
 SOURCE_PATH =
@@ -35,34 +35,38 @@ SOURCE_PATH =
 # Pick up user's definitions for variables e.g. SOURCE_PATH, etc.
 -include build-config.mk
 
+MU_BUILD_ROOT_NAME = $(shell basename $(MU_BUILD_ROOT_DIR))
+MU_BUILD_DATA_DIR_NAME = build-data
+SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(SOURCE_PATH))
+
 # For tools use build-root as source path, otherwise use given source path
-FIND_SOURCE_PATH = $(if $(is_tool),$(MU_BUILD_DIR)/..,$(SOURCE_PATH))
+FIND_SOURCE_PATH = $(if $(is_tool),$(MU_BUILD_ROOT_DIR),$(SOURCE_PATH_BUILD_DATA_DIRS))
 
 # First search given source path, then default to build-root
-FULL_SOURCE_PATH = $(SOURCE_PATH) $(MU_BUILD_DIR)/..
+FULL_SOURCE_PATH = $(SOURCE_PATH_BUILD_DATA_DIRS) $(MU_BUILD_ROOT_DIR)
 
 # Find root directory for package based on presence of package .mk
-# makefile fragment in mu-build/packages/PACKAGE.mk
-find_root_dir_for_package_fn = $(shell \
+# makefile fragment on source path.
+find_build_data_dir_for_package_fn = $(shell \
   set -eu$(BUILD_DEBUG) ; \
   for d in $(FIND_SOURCE_PATH) ; do \
-    f="$${d}/$(MU_BUILD_NAME)/packages/$(1).mk" ; \
-    [[ -f $${f} ]] && echo $${d} && exit 0 ; \
+    f="$${d}/packages/$(1).mk" ; \
+    [[ -f $${f} ]] && echo `cd $${d} && pwd` && exit 0 ; \
   done ; \
   echo "")
 
 # dir/PACKAGE
 find_source_fn = $(shell \
   set -eu$(BUILD_DEBUG) ; \
-  d="$(call find_root_dir_for_package_fn,$(1))" ; \
-  [[ -n "$${d}" ]] && d="$${d}/$(1)" ; \
+  d="$(call find_build_data_dir_for_package_fn,$(1))" ; \
+  [[ -n "$${d}" ]] && d="$${d}/../$(1)" ; \
   echo "$${d}")
 
-# Find given FILE in source path as teak-build/packages/FILE
+# Find given FILE in source path as build-data/packages/FILE
 find_package_file_fn = $(shell \
   set -eu$(BUILD_DEBUG) ; \
-  d="$(call find_root_dir_for_package_fn,$(1))" ; \
-  [[ -n "$${d}" ]] && d="$${d}/$(MU_BUILD_NAME)/packages/$(2)" ; \
+  d="$(call find_build_data_dir_for_package_fn,$(1))" ; \
+  [[ -n "$${d}" ]] && d="$${d}/packages/$(2)" ; \
   echo "$${d}")
 
 ######################################################################
@@ -73,7 +77,7 @@ NATIVE_ARCH = $(shell gcc -dumpmachine | sed -e 's/\([a-zA-Z_0-9]*\)-.*/\1/')
 
 # Find all platforms.mk that we can, including those from build-root
 $(foreach d,$(FULL_SOURCE_PATH), \
-  $(eval -include $(d)/$(MU_BUILD_NAME)/platforms.mk))
+  $(eval -include $(d)/platforms.mk))
 
 # Platform should be defined somewhere by specifying $($(PLATFORM)_arch)
 ARCH = $($(PLATFORM)_arch)
@@ -110,8 +114,8 @@ is_tool = $(findstring $(BUILD_PREFIX_tool),$@)$(findstring $*-tool,$@)
 tool_or_package_fn = $(if $(is_tool),tool,package)
 
 # Directory where packages are built & installed
-BUILD_DIR = $(MU_BUILD_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
-INSTALL_DIR = $(MU_BUILD_DIR)/$(INSTALL_PREFIX)$(ARCH)
+BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
+INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
 
 # Default VAR, package specified override of default PACKAGE_VAR
 package_var_fn = $(if $($(1)_$(2)),$($(1)_$(2)),$(1))
@@ -127,7 +131,7 @@ PACKAGE_INSTALL_DIR = \
   $(call package_install_dir_fn,$(PACKAGE))
 
 # Tools (gcc, binutils, glibc...) are installed here
-TOOL_INSTALL_DIR = $(MU_BUILD_DIR)/tools
+TOOL_INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/tools
 
 # Target specific tools go here e.g. mu-build/tools/ppc-mu-linux
 TARGET_TOOL_INSTALL_DIR = $(TOOL_INSTALL_DIR)/$(TARGET)
@@ -154,11 +158,11 @@ BUILD_ENV = \
 ######################################################################
 
 package_dir_fn = \
-  $(call find_root_dir_for_package_fn,$(1))/$(MU_BUILD_NAME)/packages
+  $(call find_build_data_dir_for_package_fn,$(1))/packages
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
-$(foreach d,$(addsuffix /$(MU_BUILD_NAME)/packages,$(FIND_SOURCE_PATH)), \
+$(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)), \
   $(eval -include $(d)/*.mk) \
   $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk))))
 
@@ -270,7 +274,7 @@ native_libdir = $($(NATIVE_ARCH)_libdir)
 
 # Allow packages to override CPPFLAGS, CFLAGS, and LDFLAGS
 CONFIGURE_ENV = \
-    $(if $(ARCH:native=),CONFIG_SITE=$(MU_BUILD_DIR)/config.site,) \
+    $(if $(ARCH:native=),CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site,) \
     $(if $($(PACKAGE)_CPPFLAGS), \
 	 CPPFLAGS="$(CPPFLAGS) $($(PACKAGE)_CPPFLAGS)") \
     $(if $($(PACKAGE)_CFLAGS), \
@@ -324,7 +328,7 @@ configure_check_timestamp = \
   mkdir -p $(PACKAGE_INSTALL_DIR) ; \
   conf="$(TIMESTAMP_DIR)/$(CONFIGURE_TIMESTAMP)" ; \
   dirs="$(call package_mk_fn,$(PACKAGE)) \
-       $(MU_BUILD_DIR)/config.site" ; \
+       $(MU_BUILD_ROOT_DIR)/config.site" ; \
   if [[ $(call find_newer_fn, $${conf}, $${dirs}, $?) ]]; then \
     $(configure_package) ; \
     touch $${conf} ; \
@@ -441,11 +445,16 @@ PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 .PHONY: %-find-source
 %-find-source %-toolfind-source:
 	@$(BUILD_ENV) ; \
+	$(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ; \
 	$(call build_msg_fn,Finding source for $(PACKAGE)) ; \
 	s="$(call find_source_fn,$(PACKAGE_SOURCE))" ; \
 	[[ -z "$${s}" ]] \
 	  && $(call build_msg_fn,Unknown package $(PACKAGE)) \
 	  && exit 1; \
+	s=`cd $${s} && pwd` ; \
+	$(call build_msg_fn,Source found in $${s}) ; \
+	mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk"; \
+	$(call build_msg_fn,Makefile fragment found in $${mk}) ; \
 	if [ ! -d "$${s}" ] ; then \
 	   d=`dirname $${s}`/$(MU_BUILD_NAME) ; \
 	   i=`cd $${d} && (git config remote.origin.url || \
@@ -473,7 +482,7 @@ PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 # System images
 ######################################################################
 
-IMAGE_DIR = $(MU_BUILD_DIR)/image-$(PLATFORM)
+IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/image-$(PLATFORM)
 
 # Reports shared libraries in given directory
 find_shared_libs_fn = \
@@ -513,7 +522,7 @@ install_image_fn = \
   : copy files from copyimg directory if present ; \
   d="$(call package_dir_fn,$(1))/$(1).copyimg" ; \
   [[ -d "$${d}" ]] \
-    && env $($(PLATFORM)_copyimg_env) $(MU_BUILD_DIR)/copyimg $$d $${tmp} ; \
+    && env $($(PLATFORM)_copyimg_env) $(MU_BUILD_ROOT_DIR)/copyimg $$d $${tmp} ; \
   : run package dependent install script ; \
   $(if $($(1)_image_install), \
        $(image_install_functions) \
@@ -548,7 +557,7 @@ MKSQUASHFS_BYTE_ORDER_ppc = -be
 MKSQUASHFS_BYTE_ORDER_mips = -be
 MKSQUASHFS_BYTE_ORDER_native = $(MKSQUASHFS_BYTE_ORDER_$(NATIVE_ARCH))
 
-PLATFORM_IMAGE_DIR = $(MU_BUILD_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
+PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # readonly root squashfs image
 ro-image: linuxrc-install linux-install
@@ -562,7 +571,7 @@ ro-image: linuxrc-install linux-install
 	cd $${tmp} ; \
 	fakeroot /bin/bash -c "{ \
 	  set -eu$(BUILD_DEBUG) ; \
-	  $(MAKE) -C $(MU_BUILD_DIR) IMAGE_INSTALL_DIR=$${tmp} \
+	  $(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${tmp} \
 	    $(patsubst %,%-imageinstall, basic_system \
 	       $(if $($(PLATFORM)_root_packages), \
 	            $($(PLATFORM)_root_packages), \
@@ -674,8 +683,8 @@ toolinstall:
 
 # Clean everything
 distclean:
-	rm -rf $(MU_BUILD_DIR)/$(BUILD_PREFIX_package)*/
-	rm -rf $(MU_BUILD_DIR)/$(BUILD_PREFIX_tool)*
-	rm -rf $(MU_BUILD_DIR)/$(INSTALL_PREFIX)*
-	rm -rf $(MU_BUILD_DIR)/$(IMAGES_PREFIX)*
+	rm -rf $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_package)*/
+	rm -rf $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_tool)*
+	rm -rf $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)*
+	rm -rf $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)*
 	rm -rf $(TOOL_INSTALL_DIR)
