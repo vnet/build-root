@@ -76,8 +76,7 @@ linux-install-headers: linux-find-source
 	@$(call build_msg_fn,Install linux headers in $(TARGET_TOOL_INSTALL_DIR)) ; \
 	$(BUILD_ENV) ; \
 	default_platform="default-$(ARCH)" ; \
-	make -C $(MU_BUILD_DIR) \
-	  PLATFORM=$${default_platform} linux-configure ; \
+	$(TOOL_MAKE) PLATFORM=$${default_platform} linux-configure ; \
 	i=$(TARGET_TOOL_INSTALL_DIR) ; \
 	mkdir -p $$i ; \
 	$(MAKE) -C $(call find_source_fn,linux) \
