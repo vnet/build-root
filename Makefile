@@ -35,15 +35,17 @@ SOURCE_PATH =
 # Pick up user's definitions for variables e.g. SOURCE_PATH, etc.
 -include build-config.mk
 
-# Add parent directory of Makefile (e.g. mu-build/..) as fall-back
-# source path
-_SOURCE_PATH = $(SOURCE_PATH) $(MU_BUILD_DIR)/..
+# For tools use build-root as source path, otherwise use given source path
+FIND_SOURCE_PATH = $(if $(is_tool),$(MU_BUILD_DIR)/..,$(SOURCE_PATH))
+
+# First search given source path, then default to build-root
+FULL_SOURCE_PATH = $(SOURCE_PATH) $(MU_BUILD_DIR)/..
 
 # Find root directory for package based on presence of package .mk
 # makefile fragment in mu-build/packages/PACKAGE.mk
 find_root_dir_for_package_fn = $(shell \
   set -eu$(BUILD_DEBUG) ; \
-  for d in $(_SOURCE_PATH) ; do \
+  for d in $(FIND_SOURCE_PATH) ; do \
     f="$${d}/$(MU_BUILD_NAME)/packages/$(1).mk" ; \
     [[ -f $${f} ]] && echo $${d} && exit 0 ; \
   done ; \
@@ -69,9 +71,11 @@ find_package_file_fn = $(shell \
 
 NATIVE_ARCH = $(shell gcc -dumpmachine | sed -e 's/\([a-zA-Z_0-9]*\)-.*/\1/')
 
-$(foreach d,$(_SOURCE_PATH), \
+# Find all platforms.mk that we can, including those from build-root
+$(foreach d,$(FULL_SOURCE_PATH), \
   $(eval -include $(d)/$(MU_BUILD_NAME)/platforms.mk))
 
+# Platform should be defined somewhere by specifying $($(PLATFORM)_arch)
 ARCH = $($(PLATFORM)_arch)
 ifeq ($(ARCH),)
   $(error "Unknown platform `$(PLATFORM)'")
@@ -154,7 +158,7 @@ package_dir_fn = \
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
-$(foreach d,$(addsuffix /$(MU_BUILD_NAME)/packages,$(_SOURCE_PATH)), \
+$(foreach d,$(addsuffix /$(MU_BUILD_NAME)/packages,$(FIND_SOURCE_PATH)), \
   $(eval -include $(d)/*.mk) \
   $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk))))
 
@@ -188,7 +192,7 @@ NATIVE_TOOLS += mpfr gmp
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
 # Tools for cross-compiling from native -> ARCH
-CROSS_TOOLS = binutils gcc toolgdb ccache
+CROSS_TOOLS = binutils gcc gdb ccache
 
 # Tools needed on native host to build for platform
 CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
@@ -328,7 +332,10 @@ configure_check_timestamp = \
     $(call build_msg_fn,Configuring $(PACKAGE): nothing to do) ; \
   fi
 
-%-toolconfigure %-configure: %-find-source
+%-toolconfigure: %-toolfind-source
+	$(configure_check_timestamp)
+
+%-configure: %-find-source
 	$(configure_check_timestamp)
 
 ######################################################################
@@ -432,7 +439,7 @@ PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 
 # Use git to download source if directory is not found
 .PHONY: %-find-source
-%-find-source:
+%-find-source %-toolfind-source:
 	@$(BUILD_ENV) ; \
 	$(call build_msg_fn,Finding source for $(PACKAGE)) ; \
 	s="$(call find_source_fn,$(PACKAGE_SOURCE))" ; \
