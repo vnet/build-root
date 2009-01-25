@@ -451,8 +451,6 @@ PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 	[[ -z "$${s}" ]] \
 	  && $(call build_msg_fn,Unknown package $(PACKAGE)) \
 	  && exit 1; \
-	s=`cd $${s} && pwd` ; \
-	$(call build_msg_fn,Source found in $${s}) ; \
 	mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk"; \
 	$(call build_msg_fn,Makefile fragment found in $${mk}) ; \
 	if [ ! -d "$${s}" ] ; then \
@@ -465,7 +463,9 @@ PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 	     $(call build_msg_fn,No source for $(PACKAGE) in $${g}); \
 	     exit 1; \
 	   fi ; \
-	fi
+	fi ; \
+	s=`cd $${s} && pwd` ; \
+	$(call build_msg_fn,Source found in $${s})
 
 %-push:
 	@$(call build_msg_fn,Pushing back source for $(PACKAGE)) ; \
