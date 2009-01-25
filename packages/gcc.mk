@@ -1,5 +1,5 @@
 # GCC install depends on ranlib from binutils
-gcc_configure_depend = binutils-toolinstall
+gcc_configure_depend = binutils-install
 
 gcc_configure_host_and_target = --target=$(TARGET)
 

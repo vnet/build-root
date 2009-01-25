@@ -1,1 +1,1 @@
-automake_configure_depend = autoconf-toolinstall
+automake_configure_depend = autoconf-install

@@ -1,2 +1,2 @@
 # depends on gmp
-mpfr_configure_depend = gmp-toolinstall
+mpfr_configure_depend = gmp-install

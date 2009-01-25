@@ -1,1 +1,1 @@
-bison_configure_depend = flex-toolinstall
+bison_configure_depend = flex-install

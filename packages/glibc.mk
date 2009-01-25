@@ -1,5 +1,5 @@
 # Need linux includes to build glibc
-glibc_configure_depend = gcc-toolinstall linux-install-headers
+glibc_configure_depend = gcc-install linux-install-headers
 
 # Point GLIBC at installed Linux headers
 glibc_configure_args = --with-headers=$(TARGET_TOOL_INSTALL_DIR)/include

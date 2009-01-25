@@ -40,7 +40,7 @@ MU_BUILD_DATA_DIR_NAME = build-data
 SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(SOURCE_PATH))
 
 # For tools use build-root as source path, otherwise use given source path
-FIND_SOURCE_PATH = $(if $(is_tool),$(MU_BUILD_ROOT_DIR),$(SOURCE_PATH_BUILD_DATA_DIRS))
+FIND_SOURCE_PATH = $(if $(is_build_tool),$(MU_BUILD_ROOT_DIR),$(SOURCE_PATH_BUILD_DATA_DIRS))
 
 # First search given source path, then default to build-root
 FULL_SOURCE_PATH = $(SOURCE_PATH_BUILD_DATA_DIRS) $(MU_BUILD_ROOT_DIR)
@@ -108,10 +108,8 @@ BUILD_PREFIX_tool = build-tool-
 INSTALL_PREFIX = install-
 IMAGES_PREFIX = images-
 
-is_tool = $(findstring $(BUILD_PREFIX_tool),$@)$(findstring $*-tool,$@)
-
 # Whether we are building a tool or not
-tool_or_package_fn = $(if $(is_tool),tool,package)
+tool_or_package_fn = $(if $(is_build_tool),tool,package)
 
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
@@ -123,7 +121,7 @@ package_var_fn = $(if $($(1)_$(2)),$($(1)_$(2)),$(1))
 package_build_dir_fn = $(call package_var_fn,$(1),build_dir)
 
 package_install_dir_fn = \
-  $(if $(is_tool),$(TOOL_INSTALL_DIR),$(INSTALL_DIR)/$(call package_build_dir_fn,$(1)))
+  $(if $(is_build_tool),$(TOOL_INSTALL_DIR),$(INSTALL_DIR)/$(call package_build_dir_fn,$(1)))
 
 PACKAGE_BUILD_DIR = \
   $(BUILD_DIR)/$(call package_build_dir_fn,$(PACKAGE))
@@ -204,8 +202,6 @@ CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
 NATIVE_TOOLS += $(NATIVE_TOOLS_yes)
 CROSS_TOOLS += $(CROSS_TOOLS_yes)
 
-ALL_TOOLS = $(NATIVE_TOOLS) $(CROSS_TOOLS)
-
 timestamp_name_fn = .mu_build_$(1)_timestamp
 CONFIGURE_TIMESTAMP = $(call timestamp_name_fn,configure)
 BUILD_TIMESTAMP = $(call timestamp_name_fn,build)
@@ -246,10 +242,7 @@ PACKAGE_DEPENDENCIES = $(call package_dependencies_fn,$(PACKAGE))
 # package specific configure, build, install dependencies
 add_package_dependency_fn = \
   $(if $($(1)_$(2)_depend), \
-       $(eval $(1)-$(2) : $($(1)_$(2)_depend)) \
-       $(if $(findstring $(1), $(ALL_TOOLS)), \
-            $(eval $(1)-tool$(2) : $(patsubst %-install,%-toolinstall, \
-		                              $($(1)_$(2)_depend)))))
+       $(eval $(1)-$(2) : $($(1)_$(2)_depend)))
 
 $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),configure) \
@@ -311,7 +304,7 @@ configure_package = \
 
 # Tools (e.g. gcc, binutils, gdb) required a platform to build for
 check_platform =							\
-  is_tool="$(is_tool)";							\
+  is_tool="$(is_build_tool)";							\
   is_cross_package="$(findstring $(PACKAGE),$(CROSS_TOOLS))";		\
   is_platform_native="$(if $(subst native,,$(PLATFORM)),,yes)";		\
   if [ "$${is_tool}" != ""						\
@@ -336,9 +329,7 @@ configure_check_timestamp = \
     $(call build_msg_fn,Configuring $(PACKAGE): nothing to do) ; \
   fi
 
-%-toolconfigure: %-toolfind-source
-	$(configure_check_timestamp)
-
+.PHONY: %-configure
 %-configure: %-find-source
 	$(configure_check_timestamp)
 
@@ -386,14 +377,13 @@ build_check_timestamp = \
     $(call build_msg_fn,Compiling $(PACKAGE): nothing to do) ; \
   fi
 
+.PHONY: %-build
 %-build: %-configure
 	$(build_check_timestamp)
 
+.PHONY: %-rebuild
 %-rebuild: %-wipe %-build
 	@ :
-
-%-toolbuild: %-toolconfigure
-	$(build_check_timestamp)
 
 ######################################################################
 # Package install
@@ -407,7 +397,7 @@ installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
 
 install_package = \
     : for non-tools remove anything that might have already been there ; \
-    $(if $(is_tool),,rm -rf $(PACKAGE_INSTALL_DIR) ;) \
+    $(if $(is_build_tool),,rm -rf $(PACKAGE_INSTALL_DIR) ;) \
     mkdir -p $(PACKAGE_INSTALL_DIR) ; \
     $(if $($(PACKAGE)_install), \
 	 $($(PACKAGE)_install), \
@@ -426,10 +416,8 @@ install_check_timestamp = \
     $(call build_msg_fn,Installing $(PACKAGE): nothing to do) ; \
   fi
 
+.PHONY: %-install
 %-install: %-build
-	$(install_check_timestamp)
-
-%-toolinstall: %-toolbuild
 	$(install_check_timestamp)
 
 ######################################################################
@@ -442,31 +430,35 @@ install_check_timestamp = \
 PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 
 # Use git to download source if directory is not found
-.PHONY: %-find-source
-%-find-source %-toolfind-source:
-	@$(BUILD_ENV) ; \
-	$(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ; \
-	$(call build_msg_fn,Finding source for $(PACKAGE)) ; \
-	s="$(call find_source_fn,$(PACKAGE_SOURCE))" ; \
-	[[ -z "$${s}" ]] \
-	  && $(call build_msg_fn,Unknown package $(PACKAGE)) \
-	  && exit 1; \
-	mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk"; \
-	$(call build_msg_fn,Makefile fragment found in $${mk}) ; \
-	if [ ! -d "$${s}" ] ; then \
-	   d=`dirname $${s}`/$(MU_BUILD_NAME) ; \
-	   i=`cd $${d} && (git config remote.origin.url || \
-                           awk '/URL/ { print $$2; }' .git/remotes/origin)`; \
-	   g=`dirname $${i}` ; \
-	   $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ; \
-	   if ! git clone $${g}/$(PACKAGE_SOURCE) $$s; then \
-	     $(call build_msg_fn,No source for $(PACKAGE) in $${g}); \
-	     exit 1; \
-	   fi ; \
-	fi ; \
-	s=`cd $${s} && pwd` ; \
-	$(call build_msg_fn,Source found in $${s})
+find_source_for_package =									\
+  @$(BUILD_ENV) ;										\
+  $(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ;				\
+  $(call build_msg_fn,Finding source for $(PACKAGE)) ;						\
+  s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;						\
+  [[ -z "$${s}" ]]										\
+    && $(call build_msg_fn,Unknown package $(PACKAGE))						\
+    && exit 1;											\
+  mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
+  $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
+  if [ ! -d "$${s}" ] ; then									\
+    d=`dirname $${s}`/$(MU_BUILD_NAME) ;							\
+    i=`cd $${d} && (git config remote.origin.url ||						\
+                    awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
+    g=`dirname $${i}` ;										\
+    $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
+    if ! git clone $${g}/$(PACKAGE_SOURCE) $$s; then						\
+      $(call build_msg_fn,No source for $(PACKAGE) in $${g});					\
+      exit 1;											\
+    fi ;											\
+  fi ;												\
+  s=`cd $${s} && pwd` ;										\
+  $(call build_msg_fn,Source found in $${s})
 
+.PHONY: %-find-source
+%-find-source:
+	$(find_source_for_package)
+
+.PHONY: %-push
 %-push:
 	@$(call build_msg_fn,Pushing back source for $(PACKAGE)) ; \
 	$(BUILD_ENV) ; \
@@ -529,6 +521,7 @@ install_image_fn = \
        cd $${tmp} ; \
        $($(1)_image_install))
 
+.PHONY: %-imageinstall
 %-imageinstall: %-install
 	$(call install_image_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
@@ -647,8 +640,8 @@ images: rw-image linux-install linuxrc-install
 # Tool chain build/install
 ######################################################################
 
-.PHONY: ccache-toolinstall
-ccache-toolinstall:
+.PHONY: ccache-install
+ccache-install:
 	if which ccache >& /dev/null; then \
 	  mkdir -p $(TOOL_INSTALL_DIR)/ccache-bin ; \
 	  c=`which ccache` ; \
@@ -658,28 +651,40 @@ ccache-toolinstall:
 	  ln -sf $$c $(TOOL_INSTALL_DIR)/ccache-bin/$(TARGET)-gcc ; \
 	fi
 
-.PHONY: toolinstall
-toolinstall:
-	$(if $(strip $(NATIVE_TOOLS)),$(MAKE) $(patsubst %,%-toolinstall,$(NATIVE_TOOLS)) ARCH=native)
-	$(MAKE) $(patsubst %,%-toolinstall,$(CROSS_TOOLS))
+TOOL_MAKE = $(MAKE) is_build_tool=yes
+
+.PHONY: install-tools
+install-tools:
+	$(if $(strip $(NATIVE_TOOLS)),\
+	  $(TOOL_MAKE) $(patsubst %,%-install,$(NATIVE_TOOLS)) ARCH=native)
+	$(TOOL_MAKE) $(patsubst %,%-install,$(CROSS_TOOLS))
 
 ######################################################################
 # Clean
 ######################################################################
 
-%-clean %-toolclean:
-	@$(call build_msg_fn, Cleaning $* in $(PACKAGE_INSTALL_DIR)) ; \
-	$(BUILD_ENV) ; \
-	$(if $(is_tool),,rm -rf $(PACKAGE_INSTALL_DIR) ;) \
-	rm -rf $(TIMESTAMP_DIR)/$(call timestamp_name_fn,*) ; \
-	$(if $($(PACKAGE)_clean), \
-	     $($(PACKAGE)_clean), \
-	     $(PACKAGE_MAKE) clean)
+package_clean_script =							\
+  @$(call build_msg_fn, Cleaning $* in $(PACKAGE_INSTALL_DIR)) ;	\
+  $(BUILD_ENV) ;							\
+  $(if $(is_build_tool),,rm -rf $(PACKAGE_INSTALL_DIR) ;)		\
+  rm -rf $(TIMESTAMP_DIR)/$(call timestamp_name_fn,*) ;			\
+  $(if $($(PACKAGE)_clean),						\
+    $($(PACKAGE)_clean),						\
+    $(PACKAGE_MAKE) clean)
 
-%-wipe %-toolwipe:
-	@$(call build_msg_fn, Wiping build/install $(PACKAGE)) ; \
-	$(BUILD_ENV) ; \
-	rm -rf $(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR) ; \
+.PHONY: %-clean
+%-clean:
+	$(package_clean_script)
+
+# Wipe e.g. remove build and install directories for packages.
+package_wipe_script =						\
+  @$(call build_msg_fn, Wiping build/install $(PACKAGE)) ;	\
+  $(BUILD_ENV) ;						\
+  rm -rf $(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR)
+
+.PHONY: %-wipe
+%-wipe:
+	$(package_wipe_script)
 
 # Clean everything
 distclean:

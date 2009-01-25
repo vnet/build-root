@@ -1,1 +1,1 @@
-autoconf_configure_depend = m4-toolinstall
+autoconf_configure_depend = m4-install
