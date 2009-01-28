@@ -451,7 +451,7 @@ find_source_for_package =									\
       exit 1;											\
     fi ;											\
     $(call build_msg_fn,Autowanking $${g}/$(PACKAGE_SOURCE)) ;					\
-    bash $(MU_BUILD_ROOT_DIR)/autowank --touch ;						\
+    (cd $${s} ; $(MU_BUILD_ROOT_DIR)/autowank --touch) ;					\
   fi ;												\
   s=`cd $${s} && pwd` ;										\
   $(call build_msg_fn,Source found in $${s})
