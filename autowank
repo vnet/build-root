@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# This aptly-named script verifies and fixes time ordering
+# problems with Makefile.{am,in} aclocal.m4 configure* files.
+
+set -eu
+#set -vx
+
+touch=""
+commit=""
+comma_v=""
+
+while [ $# != 0 ] ; do
+  case "$1" in
+    (--commav) comma_v=",v" ;;
+    (--touch) touch=yes ;;
+    (--commit=*) commit="$1" ;;
+    (*) echo "$0: usage [--touch|--commit|]" > /dev/stderr
+        exit 17 ;;
+  esac
+  shift
+done
+
+if [ "${comma_v}" != "" -a "${commit}" != "" ] ; then
+  echo "No, you may NOT molest ,v files directly.  Go away." > /dev/stderr
+  exit 1
+fi
+
+function touchme ()
+{
+  local victim="${1}"
+  shift
+  local touchmebaby=""
+  local sein="is"
+
+  if [ ! -r "$victim" ] ; then
+    echo "  Possible problem: No $victim exists. " > /dev/stderr 
+    return
+  fi
+
+  while [ $# != 0 ] ; do
+    if [ "${1}" -nt "${victim}" ] ; then
+      if [ "${touchmebaby}" = "" ] ; then
+        touchmebaby="${1}"
+      else
+        sein="are"
+        touchmebaby="${touchmebaby} ${1}"
+      fi
+    fi
+    shift
+  done
+  if [ -n "${touchmebaby}" ] ; then
+    echo "*** ${touchmebaby} ${sein} newer than ${victim}  "
+    if [ -n "${touch}" ] ; then
+      echo "Fixing " ;echo >> "$victim" ; sleep 1
+    fi
+  fi
+}
+
+makefileins="`find . -name Attic -prune -o -name Makefile.in${comma_v}`"
+
+# aclocal.m4 depends on ***/Makefile.am, configure.ac, acinclude.m4, *.m4 crap
+touchme aclocal.m4${comma_v} \
+        `find . -name Attic -prune -o -name Makefile.am${comma_v}` \
+        "configure.in${comma_v}" "configure.ac${comma_v}" \
+        "acinclude.m4${comma_v}" \
+        `find . -name Attic -prune -o -mindepth 2 -name '*.m4${comma_v}'`
+
+# Makefile.in must be newer than Makefile.am
+for f in $makefileins ; do
+  d="`dirname ${f}`"
+  touchme "${d}/Makefile.in${comma_v}" "${d}/Makefile.am${comma_v}"
+done
+
+# Makefile.in depends on aclocal.m4
+for f in $makefileins ; do
+  d="`dirname $f`"
+  touchme "${d}/Makefile.in${comma_v}" "aclocal.m4${comma_v}"
+done
+
+# config.in must be newer than aclocal.m4 and configure.ac
+if [ -f "config.in${comma_v}" ] ; then
+  touchme "config.in${comma_v}" "aclocal.m4${comma_v}" \
+                                "configure.ac${comma_v}" \
+                                "configure.in${comma_v}"
+fi
+
+# config.h.in (or More Thoroughly Modern configh.in)
+# must be newer than aclocal.m4 and (obsolete) acconfig.h
+for c_h_in in config.h.in configh.in ; do
+  if [ -f "${c_h_in}${comma_v}" ]; then
+    touchme "${c_h_in}${comma_v}" "aclocal.m4${comma_v}" "acconfig.h${comma_v}"
+    #>>>> WTF?  Why?  This is nonsensical
+    ## ***/Makefile.in must be newer than config.h.in
+    #for f in $makefileins ; do
+    #  touchme "$f" "${c_h_in}${comma_v}"
+    #done
+  fi
+done
+
+# configure must be newer than everything
+# touchme configure $makefileins -- why would this be needed?
+touchme "configure${comma_v}" "aclocal.m4${comma_v}" "acconfig.h${comma_v}" \
+                              "config.in${comma_v}" "config.h.in${comma_v}" \
+                              "configh.in${comma_v}"
+
+if [ -n "${commit}" ] ; then
+  commit="${commit:9}" # strip off "--commit="
+  # First ***/Makefile.am,
+  # configure.in, configure.ac,
+  # ***/*.m4
+  # acconfig.h
+  cvs commit -m "${commit}" \
+             `for f in ${makefileins} ; do \
+                [ -f "$${f%.in}.am" ] && echo "$${f%.in}.am" ; \
+              done` \
+             `[ -f configure.in ] && echo configure.in` \
+             `[ -f configure.ac ] && echo configure.ac` \
+             `[ -f acconfig.h ] && echo acconfig.h` \
+             `find . -mindepth 2 -name '*.m4'`
+
+  # Next aclocal.m4
+  [ -f "aclocal.m4" ] && cvs commit -m "${commit}" aclocal.m4
+
+  # Next config.in, config.h.in, configh.in
+  [ -f "config.in" ] && cvs commit -m "${commit}" config.in
+  [ -f "config.h.in" ] && cvs commit -m "${commit}" config.h.in
+  [ -f "configh.in" ] && cvs commit -m "${commit}" configh.in
+
+  # Last ***/Makefile.in, configure
+  cvs commit -m "${commit}" ${makefileins} configure
+fi
