@@ -441,7 +441,7 @@ find_source_for_package =									\
   mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
   $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
   if [ ! -d "$${s}" ] ; then									\
-    d=`dirname $${s}`/$(MU_BUILD_NAME) ;							\
+    d=`dirname $${s}`/$(MU_BUILD_DATA_DIR_NAME) ;						\
     i=`cd $${d} && (git config remote.origin.url ||						\
                     awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
     g=`dirname $${i}` ;										\
