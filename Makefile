@@ -438,30 +438,30 @@ install_check_timestamp =					\
 PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
 
 # Use git to download source if directory is not found
-find_source_for_package =								\
-  @$(BUILD_ENV) ;									\
-  $(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ;			\
-  $(call build_msg_fn,Finding source for $(PACKAGE)) ;					\
-  s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;					\
-  [[ -z "$${s}" ]]									\
-    && $(call build_msg_fn,Unknown package $(PACKAGE))					\
-    && exit 1;										\
-  d="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))" ;			\
-  mk="$${d}/packages/$(PACKAGE).mk";							\
-  $(call build_msg_fn,Makefile fragment found in $${mk}) ;				\
-  if [ ! -d "$${s}" ] ; then								\
-    i=`cd $${d} && (git config remote.origin.url ||					\
-                    awk '/URL/ { print $$2; }' .git/remotes/origin)`;			\
-    g=`dirname $${i}` ;									\
-    $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ;	\
-    if ! git clone $${g}/$(PACKAGE_SOURCE) $$s; then					\
-      $(call build_msg_fn,No source for $(PACKAGE) in $${g});				\
-      exit 1;										\
-    fi ;										\
-    $(call build_msg_fn,Autowanking $${g}/$(PACKAGE_SOURCE)) ;				\
-    (cd $${s} ; $(MU_BUILD_ROOT_DIR)/autowank --touch) ;				\
-  fi ;											\
-  s=`cd $${s} && pwd` ;									\
+find_source_for_package =									\
+  @$(BUILD_ENV) ;										\
+  $(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ;				\
+  $(call build_msg_fn,Finding source for $(PACKAGE)) ;						\
+  s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;						\
+  [[ -z "$${s}" ]]										\
+    && $(call build_msg_fn,Unknown package $(PACKAGE))						\
+    && exit 1;											\
+  mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
+  $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
+  if [ ! -d "$${s}" ] ; then									\
+    d=`dirname $${s}`/$(MU_BUILD_DATA_DIR_NAME) ;						\
+    i=`cd $${d} && (git config remote.origin.url ||						\
+                    awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
+    g=`dirname $${i}` ;										\
+    $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
+    if ! git clone $${g}/$(PACKAGE_SOURCE) $$s; then						\
+      $(call build_msg_fn,No source for $(PACKAGE) in $${g});					\
+      exit 1;											\
+    fi ;											\
+    $(call build_msg_fn,Autowanking $${g}/$(PACKAGE_SOURCE)) ;					\
+    (cd $${s} ; $(MU_BUILD_ROOT_DIR)/autowank --touch) ;					\
+  fi ;												\
+  s=`cd $${s} && pwd` ;										\
   $(call build_msg_fn,Source found in $${s})
 
 .PHONY: %-find-source
