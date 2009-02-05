@@ -368,7 +368,7 @@ build_check_timestamp = \
   comp="$(TIMESTAMP_DIR)/$(BUILD_TIMESTAMP)" ; \
   conf="$(TIMESTAMP_DIR)/$(CONFIGURE_TIMESTAMP)" ; \
   dirs="$(call find_source_fn,$(PACKAGE_SOURCE)) \
-       $(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES))" ; \
+       $(if $(is_build_tool),,$(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES)))" ; \
   if [[ $${conf} -nt $${comp} \
         || $(call find_newer_fn, $${comp}, $${dirs}, $?) ]]; then \
     $(build_package) ; \
