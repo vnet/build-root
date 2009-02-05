@@ -314,14 +314,15 @@ check_platform =							\
     exit 1 ;								\
   fi ;									\
   : check that platform gcc can be found ;				\
-  if [ ! -x "`which $(TARGET)-gcc`" ] ; then				\
+  if [ "$${is_tool}" != ""						\
+	-a "$${is_platform_native}" != ""				\
+	-a ! -x "`which $(TARGET)-gcc`" ] ; then			\
     $(call build_msg_fn,No cross-compiler found for			\
 			platform $(PLATFORM) target $(TARGET);		\
 	                try make PLATFORM=$(PLATFORM) install-tools) ;	\
     exit 1 ;								\
   fi
     
-
 configure_check_timestamp =						\
   @$(BUILD_ENV) ;							\
   $(check_platform) ;							\
