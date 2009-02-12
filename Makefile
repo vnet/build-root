@@ -67,7 +67,7 @@ find_package_file_fn = $(shell				\
   set -eu$(BUILD_DEBUG) ;				\
   d="$(call find_build_data_dir_for_package_fn,$(1))" ;	\
   [[ -n "$${d}" ]] && d="$${d}/packages/$(2)" ;		\
-  echo "$${d}")
+  [[ -f "$${d}" ]] && echo "$${d}")
 
 ######################################################################
 # ARCH, PLATFORM
