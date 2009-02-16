@@ -314,7 +314,7 @@ check_platform =								\
     exit 1 ;									\
   fi ;										\
   : check that platform gcc can be found ;					\
-  if [ "$${is_tool}" != "" -a "$(ARCH)" != "native" ] ; then			\
+  if [ "$${is_tool}" != "yes" -a "$(ARCH)" != "native" ] ; then			\
     [[ -x "`which $(TARGET)-gcc`" ]]						\
       || $(call build_msg_fn,							\
 	    No cross-compiler found for platform $(PLATFORM) target $(TARGET);	\
