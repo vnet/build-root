@@ -306,19 +306,20 @@ configure_package =							\
 check_platform =								\
   is_tool="$(is_build_tool)" ;							\
   is_cross_package="$(findstring $(PACKAGE),$(CROSS_TOOLS))" ;			\
-  is_platform_native="$(if $(subst native,,$(PLATFORM)),,yes)" ;		\
-  if [ "$${is_tool}" != ""							\
+  is_arch_native="$(if $(subst native,,$(ARCH)),,yes)" ;			\
+  if [ "$${is_tool}" == "yes"							\
        -a "$${is_cross_package}" != ""						\
-       -a "$${is_platform_native}" != "" ]; then				\
+       -a "$${is_arch_native}" != "" ]; then					\
     $(call build_msg_fn,You must specify PLATFORM for building tools) ;		\
     exit 1 ;									\
   fi ;										\
   : check that platform gcc can be found ;					\
-  if [ "$${is_tool}" != "yes" -a "$(ARCH)" != "native" ] ; then			\
-    [[ -x "`which $(TARGET)-gcc`" ]]						\
-      || $(call build_msg_fn,							\
-	    No cross-compiler found for platform $(PLATFORM) target $(TARGET);	\
-              try make PLATFORM=$(PLATFORM) install-tools) ;			\
+  if [ "$${is_tool}" != "yes"							\
+       -a "$${is_arch_native}" != ""						\
+       -a ! -x "`which $(TARGET)-gcc`" ] ; then					\
+    $(call build_msg_fn,							\
+	   No cross-compiler found for platform $(PLATFORM) target $(TARGET);	\
+	     try make PLATFORM=$(PLATFORM) install-tools) ;			\
     exit 1 ;									\
   fi
     
