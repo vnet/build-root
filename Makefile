@@ -314,8 +314,7 @@ check_platform =								\
     exit 1 ;									\
   fi ;										\
   : check that platform gcc can be found ;					\
-  if [ "$${is_tool}" != ""							\
-	-a "$${is_platform_native}" != "yes" ] ; then				\
+  if [ "$${is_tool}" != "" -a "$(ARCH)" != "native" ] ; then			\
     [[ -x "`which $(TARGET)-gcc`" ]]						\
       || $(call build_msg_fn,							\
 	    No cross-compiler found for platform $(PLATFORM) target $(TARGET);	\
@@ -450,8 +449,8 @@ find_source_for_package =									\
   mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
   $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
   if [ ! -d "$${s}" ] ; then									\
-    d=`dirname $${s}`/$(MU_BUILD_DATA_DIR_NAME) ;						\
-    i=`cd $${d} && (git config remote.origin.url ||						\
+    d=`dirname $${mk}` ;									\
+    i=`cd $${d}/.. && (git config remote.origin.url ||						\
                     awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
     g=`dirname $${i}` ;										\
     $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
