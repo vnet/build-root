@@ -17,39 +17,43 @@ DEFAULT_LINUX_ARCH = \
 LINUX_ARCH = \
   $(if $($(PLATFORM)_linux_arch),$($(PLATFORM)_linux_arch),$(BASIC_LINUX_ARCH))
 
-LINUX_BUILD_DIR = $(BUILD_DIR)/linux-$(PLATFORM)
+linux_build_dir = linux-$(PLATFORM)
 
 LINUX_MAKE = \
   $(MAKE) -C $(call find_source_fn,linux) \
-    O=$(LINUX_BUILD_DIR) \
+    O=$(PACKAGE_BUILD_DIR) \
     ARCH=$(LINUX_ARCH) \
     CROSS_COMPILE=$(TARGET)-
 
+linux_config_files_for_platform =						\
+  $(call find_package_file_fn,linux,linux-default-$(DEFAULT_LINUX_ARCH).config)	\
+  $(call find_package_file_fn,linux,linux-$(ARCH).config)			\
+  $(call find_package_file_fn,linux,linux-$(PLATFORM).config)
+
 # Copy pre-built linux config into compile directory
 # Move include files to install area for compiling glibc
-linux_configure = \
-  mkdir -p $(LINUX_BUILD_DIR) ; \
-  : construct linux config from ARCH and PLATFORM specific pieces ; \
-  b="`mktemp $(LINUX_BUILD_DIR)/.tmp-config-XXXXXX`" ; \
-  f="$(call find_package_file_fn,linux,linux-default-$(DEFAULT_LINUX_ARCH).config)" ; \
-  [[ -f "$${f}" ]] && cat $${f} >> $${b} ; \
-  f="$(call find_package_file_fn,linux,linux-$(ARCH).config)" ; \
-  [[ -f "$${f}" ]] && cat $${f} >> $${b} ; \
-  f="$(call find_package_file_fn,linux,linux-$(PLATFORM).config)" ; \
-  [[ -f "$${f}" ]] && cat $${f} >> $${b} ; \
-  if [ '0' = `wc -c $${b} | awk '{ print $$1; }'` ]; then \
-    $(call build_msg_fn,No Linux config for platform $(PLATFORM) or arch $(ARCH)) ; \
-    exit 1; \
-  fi ; \
-  : compare config with last used config ; \
-  l=$(LINUX_BUILD_DIR)/.last-config ; \
-  c=$(LINUX_BUILD_DIR)/.config ; \
-  cmp --quiet $$b $$l || { \
-	cp $$b $$l ; \
-	cp $$b $$c ; \
-	$(LINUX_MAKE) oldconfig ; \
-  } ; \
+linux_configure =									\
+  mkdir -p $(PACKAGE_BUILD_DIR) ;							\
+  : construct linux config from ARCH and PLATFORM specific pieces ;			\
+  b="`mktemp $(PACKAGE_BUILD_DIR)/.tmp-config-XXXXXX`" ;				\
+  cat $(linux_config_files_for_platform) >> $${b} ;					\
+  if [ '0' = `wc -c $${b} | awk '{ print $$1; }'` ]; then				\
+    $(call build_msg_fn,No Linux config for platform $(PLATFORM) or arch $(ARCH)) ;	\
+    exit 1;										\
+  fi ;											\
+  $(call build_msg_fn,Linux config for platform $(PLATFORM)				\
+      from $(linux_config_files_for_platform)) ;					\
+  : compare config with last used config ;						\
+  l=$(PACKAGE_BUILD_DIR)/.last-config ;							\
+  c=$(PACKAGE_BUILD_DIR)/.config ;							\
+  cmp --quiet $$b $$l || {								\
+	cp $$b $$l ;									\
+	cp $$b $$c ;									\
+	$(LINUX_MAKE) oldconfig ;							\
+  } ;											\
   $(LINUX_MAKE) Makefile prepare archprepare
+
+linux_configure_depend = $(linux_config_files_for_platform)
 
 # Install kernel headers for glibc build
 linux-install-headers: linux-configure
