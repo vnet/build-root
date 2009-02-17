@@ -101,7 +101,7 @@ TARGET_PREFIX = $(if $(ARCH:native=),$(TARGET)-,)
 ######################################################################
 
 # The package we are currently working on
-PACKAGE = $(*:-$(PLATFORM)=)
+PACKAGE = $*
 
 BUILD_PREFIX_package = build-
 BUILD_PREFIX_tool = build-tool-

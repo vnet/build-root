@@ -55,10 +55,11 @@ linux_configure =									\
 
 linux_configure_depend = $(linux_config_files_for_platform)
 
+linux_build = \
+  : nothing to do
+
 # Install kernel headers for glibc build
-linux-install-headers: linux-configure
-	@$(call build_msg_fn,Install linux headers in $(TARGET_TOOL_INSTALL_DIR)) ; \
-	$(BUILD_ENV) ; \
-	i=$(TARGET_TOOL_INSTALL_DIR) ; \
-	mkdir -p $$i ; \
-	$(LINUX_MAKE) INSTALL_HDR_PATH="$$i" headers_install
+linux_install = \
+  i=$(TARGET_TOOL_INSTALL_DIR) ; \
+  mkdir -p $$i ; \
+  $(LINUX_MAKE) INSTALL_HDR_PATH="$$i" headers_install
