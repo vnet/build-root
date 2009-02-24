@@ -314,9 +314,13 @@ check_platform =								\
     exit 1 ;									\
   fi ;										\
   : check that platform gcc can be found ;					\
+  target_gcc=gcc ;								\
+  if [ "$${is_arch_native}" != "yes" ] ; then					\
+    target_gcc=$(TARGET)-gcc ;							\
+  fi ;										\
   if [ "$${is_tool}" != "yes"							\
        -a "$${is_arch_native}" != ""						\
-       -a ! -x "`which $(TARGET)-gcc`" ] ; then					\
+       -a ! -x `which $${target_gcc}` ] ; then					\
     $(call build_msg_fn,							\
 	   No cross-compiler found for platform $(PLATFORM) target $(TARGET);	\
 	     try make PLATFORM=$(PLATFORM) install-tools) ;			\
