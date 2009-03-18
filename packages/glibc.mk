@@ -13,8 +13,9 @@ glibc_configure_args += --disable-profile
 # Hack to allow glibc to compile with static libgcc.a
 glibc_make_args = libgcc_eh=-lgcc static-gnulib=-lgcc
 
-# GLIBC -j 16 does not make install properly on some machines
-glibc_make_parallel_fails = yes
+# GLIBC -j 16 does not make install properly on some machines.
+# Is this still true?
+# glibc_make_parallel_fails = yes
 
 glibc_install = \
   $(PACKAGE_MAKE) \
