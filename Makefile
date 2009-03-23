@@ -249,10 +249,10 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-# carry over packages dependencies to image install
+# carry over packages dependencies to image install, wipe, pull, push
 $(foreach p,$(ALL_PACKAGES),							\
   $(if $($(p)_configure_depend),						\
-    $(foreach s,imageinstall wipe,						\
+    $(foreach s,imageinstall wipe pull push,					\
       $(eval $(p)-$(s):								\
 	     $(addsuffix -$(s), $(call package_dependencies_fn,$(p)))))))
 
@@ -473,17 +473,17 @@ find_source_for_package =									\
 %-find-source:
 	$(find_source_for_package)
 
-.PHONY: %-push
-%-push:
-	@$(call build_msg_fn,Pushing back source for $(PACKAGE)) ; \
-	$(BUILD_ENV) ; \
-	s=$(call find_source_fn,$(PACKAGE_SOURCE)) ; \
-	if [ "x$$s" = "x" ]; then \
-	     $(call build_msg_fn,No source for $(PACKAGE)) ; \
-	     exit 1; \
-	fi ; \
-	cd $$s ; \
-	git push
+.PHONY: %-push %-pull
+%-push %-pull:
+	@$(BUILD_ENV) ;								\
+	push_or_pull=$(subst $(PACKAGE)-,,$@) ;					\
+	$(call build_msg_fn,Git $${push_or_pull} source for $(PACKAGE)) ;	\
+	s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;				\
+	if [ "x$$s" = "x" ]; then						\
+	     $(call build_msg_fn,No source for $(PACKAGE)) ;			\
+	     exit 1;								\
+	fi ;									\
+	cd $$s && git $${push_or_pull}
 
 ######################################################################
 # System images
