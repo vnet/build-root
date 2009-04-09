@@ -249,10 +249,10 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-# carry over packages dependencies to image install, wipe, pull, push
+# carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
   $(if $($(p)_configure_depend),						\
-    $(foreach s,imageinstall wipe pull push,					\
+    $(foreach s,imageinstall wipe pull-all push-all,				\
       $(eval $(p)-$(s):								\
 	     $(addsuffix -$(s), $(call package_dependencies_fn,$(p)))))))
 
@@ -473,10 +473,10 @@ find_source_for_package =									\
 %-find-source:
 	$(find_source_for_package)
 
-.PHONY: %-push %-pull
-%-push %-pull:
+.PHONY: %-push %-pull %-push-all %-pull-all
+%-push %-pull %-push-all %-pull-all:
 	@$(BUILD_ENV) ;								\
-	push_or_pull=$(subst $(PACKAGE)-,,$@) ;					\
+	push_or_pull=$(patsubst %-all,%,$(subst $(PACKAGE)-,,$@)) ;		\
 	$(call build_msg_fn,Git $${push_or_pull} source for $(PACKAGE)) ;	\
 	s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;				\
 	if [ "x$$s" = "x" ]; then						\
