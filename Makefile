@@ -498,7 +498,9 @@ find_shared_libs_fn =				\
     -o -regex '.*/lib[a-z_]+-[0-9.]+.so'	\
     -o -regex '.*/lib[a-z_]+.so.[0-9.]+'
 
-default_image_copy =					\
+# By default pick up files from binary directories and /etc.
+# Also include shared libraries.
+default_select_files =					\
   for d in bin sbin usr/bin usr/sbin etc; do		\
     [[ -d $$d ]] && echo $$d;				\
   done ;						\
@@ -521,7 +523,7 @@ install_image_fn =								\
   mkdir -p $${inst_dir} ;							\
   cd $(2) ;									\
   : select files ;								\
-  selected_files="`$(call ifdef_fn,$(1)_image_copy,$(default_image_copy))`" ;	\
+  selected_files="`$(call ifdef_fn,$(1)_select_files,$(default_select_files))`" ; \
   [[ -z "$${selected_files}" ]]							\
     || tar cf - $${selected_files} | tar xf - -C $${inst_dir} ;			\
   : copy files from copyimg directory if present ;				\
