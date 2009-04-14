@@ -514,27 +514,25 @@ image_install_functions =			\
 # Should always be over-written by temp dir in %-root-image rule
 IMAGE_INSTALL_DIR = $(error you need to set IMAGE_INSTALL_DIR)
 
-install_image_fn =										\
-  @$(call build_msg_fn,Image-install $* for platform $(PLATFORM)) ;				\
-  $(BUILD_ENV) ;										\
-  inst_dir=$(IMAGE_INSTALL_DIR) ;								\
-  mkdir -p $${inst_dir} ;									\
-  cd $(2) ;											\
-  : select files ;										\
-  selected_files="`$(if $($(1)_image_copy),							\
-           $($(1)_image_copy),									\
-           $(default_image_copy)) ;								\
-      echo "" ;											\
-      exit 0 ;`" ;										\
-  [[ -z "$${selected_files}" ]] || tar cf - $${selected_files} | tar xf - -C $${inst_dir} ;	\
-  : copy files from copyimg directory if present ;						\
-  d="$(call package_dir_fn,$(1))/$(1).copyimg" ;						\
-  [[ -d "$${d}" ]]										\
-    && env $($(PLATFORM)_copyimg_env) $(MU_BUILD_ROOT_DIR)/copyimg $$d $${inst_dir} ;		\
-  : run package dependent install script ;							\
-  $(if $($(1)_image_install),									\
-       $(image_install_functions)								\
-       cd $${inst_dir} ;									\
+install_image_fn =								\
+  @$(call build_msg_fn,Image-install $(1) for platform $(PLATFORM)) ;		\
+  $(BUILD_ENV) ;								\
+  inst_dir=$(IMAGE_INSTALL_DIR) ;						\
+  mkdir -p $${inst_dir} ;							\
+  cd $(2) ;									\
+  : select files ;								\
+  selected_files="`$(call ifdef_fn,$(1)_image_copy,$(default_image_copy))`" ;	\
+  [[ -z "$${selected_files}" ]]							\
+    || tar cf - $${selected_files} | tar xf - -C $${inst_dir} ;			\
+  : copy files from copyimg directory if present ;				\
+  d="$(call package_dir_fn,$(1))/$(1).copyimg" ;				\
+  [[ -d "$${d}" ]]								\
+    && env $($(PLATFORM)_copyimg_env)						\
+	$(MU_BUILD_ROOT_DIR)/copyimg $$d $${inst_dir} ;				\
+  : run package dependent install script ;					\
+  $(if $($(1)_image_install),							\
+       $(image_install_functions)						\
+       cd $${inst_dir} ;							\
        $($(1)_image_install))
 
 .PHONY: %-imageinstall
