@@ -69,6 +69,15 @@ find_package_file_fn = $(shell				\
   [[ -n "$${d}" ]] && d="$${d}/packages/$(2)" ;		\
   [[ -f "$${d}" ]] && echo "$${d}")
 
+# Find first FILE in source path with name PATH/build-data/FILE
+find_build_data_file_fn = $(shell				\
+  set -eu$(BUILD_DEBUG) ;					\
+  for d in $(FIND_SOURCE_PATH) ; do				\
+    f="$${d}/$(1)" ;						\
+    [[ -f $${f} ]] && echo `cd $${d} && pwd`/$(1) && exit 0 ;	\
+  done ;							\
+  echo "")
+
 ######################################################################
 # ARCH, PLATFORM
 ######################################################################
@@ -558,12 +567,6 @@ basic_system-imageinstall:
 	        $(TARGET_TOOL_INSTALL_DIR),			\
 	        $(TOOL_INSTALL_DIR)/$(NATIVE_ARCH)-$(OS)))
 
-MKSQUASHFS_BYTE_ORDER_x86_64 = -le
-MKSQUASHFS_BYTE_ORDER_i686 = -le
-MKSQUASHFS_BYTE_ORDER_ppc = -be
-MKSQUASHFS_BYTE_ORDER_mips = -be
-MKSQUASHFS_BYTE_ORDER_native = $(MKSQUASHFS_BYTE_ORDER_$(NATIVE_ARCH))
-
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # readonly root squashfs image
@@ -588,7 +591,7 @@ ro-image: linuxrc-install linux-install
 	    -exec $(TARGET_PREFIX)strip					\
                   --strip-unneeded '{}' ';'				\
 	    >& /dev/null ;						\
-	  mksquashfs $${tmp} $$i $(MKSQUASHFS_BYTE_ORDER_$(ARCH)) ;	\
+	  mksquashfs $${tmp} $$i ;					\
 	}" ;								\
 	: cleanup tmp directory ;					\
 	rm -rf $${tmp}
