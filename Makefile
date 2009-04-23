@@ -526,13 +526,14 @@ image_install_functions =			\
 IMAGE_INSTALL_DIR = $(error you need to set IMAGE_INSTALL_DIR)
 
 install_image_fn =								\
-  @$(call build_msg_fn,Image-install $(1) for platform $(PLATFORM)) ;		\
-  $(BUILD_ENV) ;								\
+  @$(BUILD_ENV) ;								\
+  $(call build_msg_fn,Image-install $(1) for platform $(PLATFORM)) ;		\
   inst_dir=$(IMAGE_INSTALL_DIR) ;						\
   mkdir -p $${inst_dir} ;							\
   cd $(2) ;									\
   : select files ;								\
-  selected_files="`$(call ifdef_fn,$(1)_select_files,$(default_select_files))`" ; \
+  selected_files="`$(call ifdef_fn,$(1)_select_files,$(default_select_files)) ;	\
+                  echo "" ; exit 0 ; `";					\
   [[ -z "$${selected_files}" ]]							\
     || tar cf - $${selected_files} | tar xf - -C $${inst_dir} ;			\
   : copy files from copyimg directory if present ;				\
@@ -550,7 +551,7 @@ install_image_fn =								\
 %-imageinstall: %-install
 	$(call install_image_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
-basic_system_image_copy =				\
+basic_system_select_files =				\
   echo bin/ldd ;					\
   echo lib$($(ARCH)_libdir)/ld-*.so* ;			\
   $(call find_shared_libs_fn, lib$($(ARCH)_libdir))
@@ -612,7 +613,7 @@ mkfs_fn_ext2 = \
   e2fsimage -d $(1) -f $(2) -s $(MKFS_EXT2_RW_IMAGE_SIZE)
 
 # default image type
-mkfs_fn_ = $(mkfs_fn_ext2)
+mkfs_fn_ = $(mkfs_fn_jffs2)
 
 # read write image
 rw-image: ro-image
