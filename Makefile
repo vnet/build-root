@@ -94,6 +94,14 @@ ifeq ($(ARCH),)
   $(error "Unknown platform `$(PLATFORM)'")
 endif
 
+# map e.g. ppc7450 -> ppc
+BASIC_ARCH = \
+   ${shell case '$(ARCH)' in \
+      (i*86*) echo i386 ;; \
+      (ppc*|powerpc*) echo ppc ;; \
+      (*) echo '$(ARCH)' ;; \
+     esac }
+
 # OS to configure for.  configure --host will be set to $(ARCH)-$(OS)
 OS = mu-linux
 
@@ -191,7 +199,7 @@ NATIVE_TOOLS_$(IS_LINUX) += $(NATIVE_TOOLS_LINUX)
 CROSS_TOOLS_$(IS_LINUX) += glibc
 
 # must be first for bootstrapping
-NATIVE_TOOLS = findutils make git
+NATIVE_TOOLS = findutils make git spp
 
 # basic tools needed for build system
 NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex
@@ -553,14 +561,16 @@ install_image_fn =								\
 
 basic_system_select_files =				\
   echo bin/ldd ;					\
-  echo lib$($(ARCH)_libdir)/ld-*.so* ;			\
+  echo lib$($(ARCH)_libdir)/ld*.so* ;			\
   $(call find_shared_libs_fn, lib$($(ARCH)_libdir))
 
 basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\
   mkdir -p usr usr/{bin,sbin} usr/lib ;			\
   mkdir -p var var/{lib,lock,log,run,tmp} ;		\
-  mkdir -p var/lock/subsys var/lib/urandom
+  mkdir -p var/lock/subsys var/lib/urandom ; \
+  : make dev directory ; \
+  $(linuxrc_makedev)
 
 basic_system-imageinstall:
 	$(call install_image_fn,basic_system,			\
@@ -570,32 +580,36 @@ basic_system-imageinstall:
 
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
+ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
+
 # readonly root squashfs image
-ro-image: linuxrc-install linux-install
+ro-image: linuxrc-install linux-install $(patsubst %,%-install,$(ROOT_PACKAGES))
 	@$(BUILD_ENV) ;							\
 	d=$(PLATFORM_IMAGE_DIR) ;					\
 	mkdir -p $$d ;							\
 	i=$$d/ro.img ;							\
 	rm -f $$i ;							\
-	tmp="`mktemp -d $$d/ro-image-XXXXXX`" ;				\
-	chmod 0755 $${tmp} ;						\
-	cd $${tmp} ;							\
+	tmp_dir="`mktemp -d $$d/ro-image-XXXXXX`" ;			\
+	chmod 0755 $${tmp_dir} ;					\
+	cd $${tmp_dir} ;						\
 	fakeroot /bin/bash -c "{					\
 	  set -eu$(BUILD_DEBUG) ;					\
-	  $(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${tmp}	\
-	    $(patsubst %,%-imageinstall, basic_system			\
-	       $(if $($(PLATFORM)_root_packages),			\
-	            $($(PLATFORM)_root_packages),			\
-	            $(default_root_packages))) ;			\
+	  $(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${tmp_dir}	\
+	    $(patsubst %,%-imageinstall,				\
+		basic_system $(ROOT_PACKAGES)) ;			\
 	  : strip symbols from files ;					\
-	  find $${tmp} -type f						\
-	    -exec $(TARGET_PREFIX)strip					\
-                  --strip-unneeded '{}' ';'				\
-	    >& /dev/null ;						\
-	  mksquashfs $${tmp} $$i ;					\
+	  find $${tmp_dir} -type f					\
+	    -exec							\
+              $(TARGET_PREFIX)strip					\
+                --strip-unneeded '{}' ';'				\
+	        >& /dev/null ;						\
+	  : make read-only file system ;				\
+	  mksquashfs							\
+	    $${tmp_dir} $$i						\
+	    -no-exports -no-progress -no-recovery ;			\
 	}" ;								\
 	: cleanup tmp directory ;					\
-	rm -rf $${tmp}
+	rm -rf $${tmp_dir}
 
 MKFS_JFFS2_BYTE_ORDER_x86_64 = -l
 MKFS_JFFS2_BYTE_ORDER_i686 = -l
@@ -603,9 +617,9 @@ MKFS_JFFS2_BYTE_ORDER_ppc = -b
 MKFS_JFFS2_BYTE_ORDER_mips = -b
 MKFS_JFFS2_BYTE_ORDER_native = $(MKFS_JFFS2_BYTE_ORDER_$(NATIVE_ARCH))
 
-mkfs_fn_jffs2 =					\
-  mkfs.jffs2 $(MKFS_JFFS2_BYTE_ORDER_$(ARCH))	\
-    --output=$(2) --root=$(1)
+mkfs_fn_jffs2 = mkfs.jffs2			\
+  --root=$(1) --output=$(2)			\
+  $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
 MKFS_EXT2_RW_IMAGE_SIZE = 10024
 
@@ -617,26 +631,26 @@ mkfs_fn_ = $(mkfs_fn_jffs2)
 
 # read write image
 rw-image: ro-image
-	@$(BUILD_ENV) ;							\
-	d=$(PLATFORM_IMAGE_DIR) ;					\
-	mkdir -p $$d ;							\
-	a="`date +%Y%m%d`" ;						\
-	i="$$d/rw-$$a.img" ;						\
-	rm -f $$i ;							\
-	tmp="`mktemp -d $$d/rw-image-XXXXXX`" ;				\
-	chmod 0755 $${tmp} ;						\
-	cd $${tmp} ;							\
-	fakeroot /bin/bash -c "{					\
-	  set -eu$(BUILD_DEBUG) ;					\
-	  mkdir -p proc initrd images ro rw union ;			\
-	  mkdir -p changes/root-$$a.img ;				\
-	  $(INSTALL_DIR)/linuxrc/sbin/mkinitrd_dev -d dev ;		\
-	  cp $$d/ro.img images/root-$$a.img ;				\
-	  md5sum images/root-$$a.img > images/root-$$a.img.md5 ;	\
-	  $(call mkfs_fn_$($(PLATFORM)_rw_image_type),$${tmp},$${i}) ;	\
-	}" ;								\
-	: cleanup tmp directory ;					\
-	rm -rf $${tmp}
+	@$(BUILD_ENV) ;									\
+	d=$(PLATFORM_IMAGE_DIR) ;							\
+	mkdir -p $$d ;									\
+	rw_image="$$d/rw.img" ;								\
+	ro_image="ro.img" ;								\
+	rm -f $$rw_image ;								\
+	tmp_dir="`mktemp -d $$d/rw-image-XXXXXX`" ;					\
+	chmod 0755 $${tmp_dir} ;							\
+	cd $${tmp_dir} ;								\
+	fakeroot /bin/bash -c "{							\
+	  set -eu$(BUILD_DEBUG) ;							\
+	  mkdir -p proc initrd images ro rw union ;					\
+	  $(linuxrc_makedev) ;								\
+	  cp $$d/$${ro_image} images/$${ro_image} ;					\
+	  md5sum images/$${ro_image} > images/$${ro_image}.md5 ;			\
+	  mkdir -p changes/$${ro_image} ;						\
+	  $(call mkfs_fn_$($(PLATFORM)_rw_image_type),$${tmp_dir},$${rw_image}) ;	\
+	}" ;										\
+	: cleanup tmp directory ;							\
+	rm -rf $${tmp_dir}
 
 images: rw-image linux-install linuxrc-install
 	@$(BUILD_ENV) ;						\
