@@ -282,6 +282,9 @@ BIARCH = 64
 x86_64_libdir = $(BIARCH)
 native_libdir = $($(NATIVE_ARCH)_libdir)
 
+# lib or lib64 depending
+arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
+
 # Allow packages to override CPPFLAGS, CFLAGS, and LDFLAGS
 CONFIGURE_ENV =								\
     $(if $(ARCH:native=),CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site,)	\
@@ -308,7 +311,7 @@ configure_package_gnu =						\
            $(if $(ARCH:native=),--host=$(TARGET),))		\
       $(if $($(PACKAGE)_configure_prefix),			\
            $($(PACKAGE)_configure_prefix),			\
-           --libdir=$(PACKAGE_INSTALL_DIR)/lib$($(ARCH)_libdir)	\
+           --libdir=$(PACKAGE_INSTALL_DIR)/$(arch_lib_dir)	\
            --prefix=$(PACKAGE_INSTALL_DIR))			\
       $($(PACKAGE)_configure_args)
 
@@ -419,7 +422,7 @@ build_check_timestamp =									\
 # Package install
 ######################################################################
 
-installed_lib_fn = $(call package_install_dir_fn,$(1))/lib$($(ARCH)_libdir)
+installed_lib_fn = $(call package_install_dir_fn,$(1))/$(arch_lib_dir)
 installed_include_fn = $(call package_install_dir_fn,$(1))/include
 
 installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
@@ -511,18 +514,19 @@ IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/image-$(PLATFORM)
 # Reports shared libraries in given directory
 find_shared_libs_fn =				\
   find $(1)					\
+    -maxdepth 1					\
        -regex '.*/lib[a-z_]+.so'		\
     -o -regex '.*/lib[a-z_]+-[0-9.]+.so'	\
     -o -regex '.*/lib[a-z_]+.so.[0-9.]+'
 
 # By default pick up files from binary directories and /etc.
 # Also include shared libraries.
-default_select_files =					\
+DEFAULT_IMAGE_INCLUDE =					\
   for d in bin sbin usr/bin usr/sbin etc; do		\
     [[ -d $$d ]] && echo $$d;				\
   done ;						\
-  [[ -d lib$($(ARCH)_libdir) ]]				\
-    && $(call find_shared_libs_fn,lib$($(ARCH)_libdir))
+  [[ -d $(arch_lib_dir) ]]				\
+    && $(call find_shared_libs_fn,$(arch_lib_dir))
 
 # Define any shell functions needed by install scripts
 image_install_functions =			\
@@ -539,11 +543,20 @@ install_image_fn =								\
   inst_dir=$(IMAGE_INSTALL_DIR) ;						\
   mkdir -p $${inst_dir} ;							\
   cd $(2) ;									\
-  : select files ;								\
-  selected_files="`$(call ifdef_fn,$(1)_select_files,$(default_select_files)) ;	\
-                  echo "" ; exit 0 ; `";					\
-  [[ -z "$${selected_files}" ]]							\
-    || tar cf - $${selected_files} | tar xf - -C $${inst_dir} ;			\
+  : select files to include in image ;						\
+  image_include_files="								\
+    `$(call ifdef_fn,$(1)_image_include,$(DEFAULT_IMAGE_INCLUDE)) ;		\
+     echo "" ;									\
+     exit 0 ; `";								\
+  : select files regexps to exclude from image ;				\
+  image_exclude_files="" ;							\
+  if [ ! -z "$($(1)_image_exclude)" ] ; then					\
+    image_exclude_files="${image_exclude_files}					\
+                         $(patsubst %,--exclude=%,$($(1)_image_exclude))" ;	\
+  fi ;										\
+  [[ -z "$${image_include_files}" ]]						\
+    || tar cf - $${image_include_files} $${image_exclude_files}			\
+       | tar xf - -C $${inst_dir} ;						\
   : copy files from copyimg directory if present ;				\
   d="$(call package_dir_fn,$(1))/$(1).copyimg" ;				\
   [[ -d "$${d}" ]]								\
@@ -559,10 +572,10 @@ install_image_fn =								\
 %-imageinstall: %-install
 	$(call install_image_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
-basic_system_select_files =				\
+basic_system_image_include =				\
   echo bin/ldd ;					\
-  echo lib$($(ARCH)_libdir)/ld*.so* ;			\
-  $(call find_shared_libs_fn, lib$($(ARCH)_libdir))
+  echo $(arch_lib_dir)/ld*.so* ;			\
+  $(call find_shared_libs_fn, $(arch_lib_dir))
 
 basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\
