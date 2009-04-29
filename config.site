@@ -77,3 +77,4 @@ dpkg_cv_va_copy=yes
 # coreutils
 ######################################################################
 ac_cv_search_clock_gettime=no
+gl_cv_fs_space=yes

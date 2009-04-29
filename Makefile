@@ -37,10 +37,15 @@ SOURCE_PATH =
 
 MU_BUILD_ROOT_NAME = $(shell basename $(MU_BUILD_ROOT_DIR))
 MU_BUILD_DATA_DIR_NAME = build-data
+
+SOURCE_PATH_BUILD_ROOT_DIRS = $(addsuffix /$(MU_BUILD_NAME),$(SOURCE_PATH))
 SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(SOURCE_PATH))
 
 # For tools use build-root as source path, otherwise use given source path
-FIND_SOURCE_PATH = $(if $(is_build_tool),$(MU_BUILD_ROOT_DIR),$(SOURCE_PATH_BUILD_DATA_DIRS))
+FIND_SOURCE_PATH =						\
+  $(if $(is_build_tool),					\
+    $(SOURCE_PATH_BUILD_ROOT_DIRS) $(MU_BUILD_ROOT_DIR),	\
+    $(SOURCE_PATH_BUILD_DATA_DIRS))
 
 # First search given source path, then default to build-root
 FULL_SOURCE_PATH = $(SOURCE_PATH_BUILD_DATA_DIRS) $(MU_BUILD_ROOT_DIR)
@@ -266,10 +271,12 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
+TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all
+
 # carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
   $(if $($(p)_configure_depend),						\
-    $(foreach s,imageinstall wipe pull-all push-all,				\
+    $(foreach s,$(TARGETS_RESPECTING_DEPENDENCIES),				\
       $(eval $(p)-$(s):								\
 	     $(addsuffix -$(s), $(call package_dependencies_fn,$(p)))))))
 
@@ -522,7 +529,9 @@ find_shared_libs_fn =				\
 # By default pick up files from binary directories and /etc.
 # Also include shared libraries.
 DEFAULT_IMAGE_INCLUDE =					\
-  for d in bin sbin usr/bin usr/sbin etc; do		\
+  for d in bin sbin libexec				\
+           usr/bin usr/sbin usr/libesec			\
+           etc; do					\
     [[ -d $$d ]] && echo $$d;				\
   done ;						\
   [[ -d $(arch_lib_dir) ]]				\
@@ -537,7 +546,7 @@ image_install_functions =			\
 # Should always be over-written by temp dir in %-root-image rule
 IMAGE_INSTALL_DIR = $(error you need to set IMAGE_INSTALL_DIR)
 
-install_image_fn =								\
+image_install_fn =								\
   @$(BUILD_ENV) ;								\
   $(call build_msg_fn,Image-install $(1) for platform $(PLATFORM)) ;		\
   inst_dir=$(IMAGE_INSTALL_DIR) ;						\
@@ -568,9 +577,9 @@ install_image_fn =								\
        cd $${inst_dir} ;							\
        $($(1)_image_install))
 
-.PHONY: %-imageinstall
-%-imageinstall: %-install
-	$(call install_image_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
+.PHONY: %-image_install
+%-image_install: %-install
+	$(call image_install_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
 basic_system_image_include =				\
   echo bin/ldd ;					\
@@ -581,12 +590,13 @@ basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\
   mkdir -p usr usr/{bin,sbin} usr/lib ;			\
   mkdir -p var var/{lib,lock,log,run,tmp} ;		\
-  mkdir -p var/lock/subsys var/lib/urandom ; \
-  : make dev directory ; \
+  mkdir -p var/lock/subsys var/lib/urandom ;		\
+  : make dev directory ;				\
   $(linuxrc_makedev)
 
-basic_system-imageinstall:
-	$(call install_image_fn,basic_system,			\
+.PHONY: basic_system-image_install
+basic_system-image_install:
+	$(call image_install_fn,basic_system,			\
 	   $(if $(ARCH:native=),				\
 	        $(TARGET_TOOL_INSTALL_DIR),			\
 	        $(TOOL_INSTALL_DIR)/$(NATIVE_ARCH)-$(OS)))
@@ -596,7 +606,7 @@ PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
 
 # readonly root squashfs image
-ro-image: linuxrc-install linux-install $(patsubst %,%-install,$(ROOT_PACKAGES))
+ro-image: linuxrc-install linux-install
 	@$(BUILD_ENV) ;							\
 	d=$(PLATFORM_IMAGE_DIR) ;					\
 	mkdir -p $$d ;							\
@@ -608,8 +618,7 @@ ro-image: linuxrc-install linux-install $(patsubst %,%-install,$(ROOT_PACKAGES))
 	fakeroot /bin/bash -c "{					\
 	  set -eu$(BUILD_DEBUG) ;					\
 	  $(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${tmp_dir}	\
-	    $(patsubst %,%-imageinstall,				\
-		basic_system $(ROOT_PACKAGES)) ;			\
+	    $(patsubst %,%-image_install, basic_system $(ROOT_PACKAGES)) ;			\
 	  : strip symbols from files ;					\
 	  find $${tmp_dir} -type f					\
 	    -exec							\
@@ -631,6 +640,7 @@ MKFS_JFFS2_BYTE_ORDER_mips = -b
 MKFS_JFFS2_BYTE_ORDER_native = $(MKFS_JFFS2_BYTE_ORDER_$(NATIVE_ARCH))
 
 mkfs_fn_jffs2 = mkfs.jffs2			\
+  --eraseblock=256KiB				\
   --root=$(1) --output=$(2)			\
   $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
