@@ -28,7 +28,7 @@ native_arch = native
 
 # Default for which packages go into read-only image
 # used to have pam
-default_root_packages = bash coreutils sysvinit util-linux mingetty
+default_root_packages = bash coreutils sysvinit util-linux mingetty procps
 
 # Linux based platforms (PLATFORM=i686 PLATFORM=ppc etc.)
 i686_arch = i686
