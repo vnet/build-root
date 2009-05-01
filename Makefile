@@ -136,6 +136,7 @@ tool_or_package_fn = $(if $(is_build_tool),tool,package)
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
 INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # Default VAR, package specified override of default PACKAGE_VAR
 package_var_fn = $(if $($(1)_$(2)),$($(1)_$(2)),$(1))
@@ -601,24 +602,26 @@ basic_system-image_install:
 	        $(TARGET_TOOL_INSTALL_DIR),			\
 	        $(TOOL_INSTALL_DIR)/$(NATIVE_ARCH)-$(OS)))
 
-PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
-
 ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
 
 # readonly root squashfs image
-ro-image: linuxrc-install linux-install
+.PHONY: ro-image
+ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
 	@$(BUILD_ENV) ;							\
 	d=$(PLATFORM_IMAGE_DIR) ;					\
-	mkdir -p $$d ;							\
-	i=$$d/ro.img ;							\
-	rm -f $$i ;							\
+	mkdir -p $$d;							\
+	ro_image=$$d/ro.img ;						\
+	rm -f $${ro_image} ;						\
 	tmp_dir="`mktemp -d $$d/ro-image-XXXXXX`" ;			\
 	chmod 0755 $${tmp_dir} ;					\
 	cd $${tmp_dir} ;						\
+	trap "rm -rf $${tmp_dir}" err ;					\
 	fakeroot /bin/bash -c "{					\
 	  set -eu$(BUILD_DEBUG) ;					\
 	  $(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${tmp_dir}	\
-	    $(patsubst %,%-image_install, basic_system $(ROOT_PACKAGES)) ;			\
+	    $(patsubst %,%-image_install,				\
+	      basic_system						\
+	      $(ROOT_PACKAGES)) ;					\
 	  : strip symbols from files ;					\
 	  find $${tmp_dir} -type f					\
 	    -exec							\
@@ -627,7 +630,7 @@ ro-image: linuxrc-install linux-install
 	        >& /dev/null ;						\
 	  : make read-only file system ;				\
 	  mksquashfs							\
-	    $${tmp_dir} $$i						\
+	    $${tmp_dir} $${ro_image}					\
 	    -no-exports -no-progress -no-recovery ;			\
 	}" ;								\
 	: cleanup tmp directory ;					\
@@ -644,35 +647,52 @@ mkfs_fn_jffs2 = mkfs.jffs2			\
   --root=$(1) --output=$(2)			\
   $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
-MKFS_EXT2_RW_IMAGE_SIZE = 10024
+EXT2_RW_IMAGE_SIZE = 16384
 
 mkfs_fn_ext2 = \
-  e2fsimage -d $(1) -f $(2) -s $(MKFS_EXT2_RW_IMAGE_SIZE)
+  e2fsimage -d $(1) -f $(2) -s $(EXT2_RW_IMAGE_SIZE)
 
-# default image type
-mkfs_fn_ = $(mkfs_fn_jffs2)
+RW_IMAGE_TYPE=jffs2
+
+make_rw_image_fn = \
+  $(call mkfs_fn_$(RW_IMAGE_TYPE),$(1),$(2))
+
+rw_image_embed_ro_image_fn =			\
+  mkdir -p proc initrd images ro rw union ;	\
+  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;	\
+  md5sum images/$(1) > images/$(1).md5 ;	\
+  mkdir -p changes/$(1)
+
+# make sure RW_IMAGE_TYPE is a type we know how to build
+.PHONY: rw-image-check-type
+rw-image-check-type:
+	@$(BUILD_ENV) ;								\
+	if [ -z "$(make_rw_image_fn)" ] ; then					\
+	  $(call build_msg_fn,Unknown read/write fs image type;			\
+		              try RW_IMAGE_TYPE=ext2 or RW_IMAGE_TYPE=jffs2) ;	\
+	  exit 1;								\
+	fi
 
 # read write image
-rw-image: ro-image
-	@$(BUILD_ENV) ;									\
-	d=$(PLATFORM_IMAGE_DIR) ;							\
-	mkdir -p $$d ;									\
-	rw_image="$$d/rw.img" ;								\
-	ro_image="ro.img" ;								\
-	rm -f $$rw_image ;								\
-	tmp_dir="`mktemp -d $$d/rw-image-XXXXXX`" ;					\
-	chmod 0755 $${tmp_dir} ;							\
-	cd $${tmp_dir} ;								\
-	fakeroot /bin/bash -c "{							\
-	  set -eu$(BUILD_DEBUG) ;							\
-	  mkdir -p proc initrd images ro rw union ;					\
-	  $(linuxrc_makedev) ;								\
-	  cp $$d/$${ro_image} images/$${ro_image} ;					\
-	  md5sum images/$${ro_image} > images/$${ro_image}.md5 ;			\
-	  mkdir -p changes/$${ro_image} ;						\
-	  $(call mkfs_fn_$($(PLATFORM)_rw_image_type),$${tmp_dir},$${rw_image}) ;	\
-	}" ;										\
-	: cleanup tmp directory ;							\
+.PHONY: rw-image
+rw-image: rw-image-check-type ro-image
+	@$(BUILD_ENV) ;						\
+	d=$(PLATFORM_IMAGE_DIR) ;				\
+	mkdir -p $$d ;						\
+	rw_image="$$d/rw.$(RW_IMAGE_TYPE)" ;			\
+	ro_image="ro.img" ;					\
+	rm -f $$rw_image ;					\
+	tmp_dir="`mktemp -d $$d/rw-image-XXXXXX`" ;		\
+	chmod 0755 $${tmp_dir} ;				\
+	cd $${tmp_dir} ;					\
+	trap "rm -rf $${tmp_dir}" err ;				\
+	fakeroot /bin/bash -c "{				\
+	  set -eu$(BUILD_DEBUG) ;				\
+	  $(linuxrc_makedev) ;					\
+	  $(call rw_image_embed_ro_image_fn,$${ro_image}) ;	\
+	  $(call make_rw_image_fn,$${tmp_dir},$${rw_image}) ;	\
+	}" ;							\
+	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
 images: rw-image linux-install linuxrc-install
