@@ -477,7 +477,7 @@ find_source_for_package =									\
   $(call build_msg_fn,Finding source for $(PACKAGE)) ;						\
   s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;						\
   [[ -z "$${s}" ]]										\
-    && $(call build_msg_fn,Unknown package $(PACKAGE))						\
+    && $(call build_msg_fn,Package $(PACKAGE) not found with path $(SOURCE_PATH))						\
     && exit 1;											\
   mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
   $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
@@ -698,7 +698,6 @@ rw-image: rw-image-check-type ro-image
 images: rw-image linux-install linuxrc-install
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
-	cp $(INSTALL_DIR)/linuxrc/initrd.img $$d ;		\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
 	i="" ;							\
 	[[ -z $$i && -f bzImage ]] && i=bzImage ;		\
