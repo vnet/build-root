@@ -1,0 +1,326 @@
+#
+# "ebuild" README
+#
+#  Permission is hereby granted, free of charge, to any person obtaining
+#  a copy of this software and associated documentation files (the
+#  "Software"), to deal in the Software without restriction, including
+#  without limitation the rights to use, copy, modify, merge, publish,
+#  distribute, sublicense, and/or sell copies of the Software, and to
+#  permit persons to whom the Software is furnished to do so, subject to
+#  the following conditions:
+#
+#  The above copyright notice and this permission notice shall be
+#  included in all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+#  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+#  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+#  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+Intro
+-----
+
+This note hopefully describes Eliot's build system in enough detail
+for folks to customize it in normal ways.
+
+See below under the heading "Everyday Ebuild" to get started.
+
+The ebuild system carefully constructs a set of cross-compilation
+tools, then uses these tools to build system software. Ebuild handles
+native compilation as a straightforwad case of the more general
+problem.
+
+Ebuild uses the git source control system to provide on-demand
+component fetching from upstream source code repositories.  To
+bootstrap the ebuild system, one must manually fetch a couple of
+directories. Thereafter, ebuild pokes around in the resulting git
+repos to learn how to fetch more software.
+
+By a simple configuration file, the ebuild system supports multiple
+source code repositories. Standard practice: configure a given
+instance of the ebuild system to segregate open and closed source
+software; to facilitate compliance with GPL and other source code
+licenses.
+
+The ebuild system works best with software built via GNU autoconf / 
+automake. The amount of work required to teach ebuild to build software for
+multiple platform targets is almost zero, for autoconf / automake enabled
+programs. Software built in other ways may require considerable fiddling
+to build properly for a variety of targets
+
+Ebuild provides packaging / scripting support for building
+sophisticated embedded Linux systems; including straight-ahead initrd
+support, and building initrd + linuxrc + JFFS2 + unionfs images.
+
+Dependencies work *exactly right* in the ebuild system. There's no
+need to run around nuking everything in sight when e.g. 
+
+Developers customizing
+
+Key files
+---------
+
+.../build-root/Makefile comprises the lion's share of the build
+system. It contains all of the generic targets, including: xxx-build,
+xxx-rebuild, xxx-install, xxx-clean, xxx-wipe, xxx-configure, and
+xxx-find-source.
+
+Makefile also collects makefile fragments which describe individual
+software components, target platforms, and collections of software
+(aka packages).
+
+.../build-root/build-config.mk constructs the key make variable
+SOURCE_PATH.  SOURCE_PATH tells the build system where to find the N
+source repositories which contain the software to be built.
+
+Each repository's $repoN/build-data/platforms.mk defines a set of
+platforms. For each platform, platforms.mk specifies the target
+platform's architecture, tool name, linux build image, gcc
+configuration args, image type, and list of packaged software.
+
+Each repository's $repoN/build-data/packages directory contains
+Makefile fragments which explain how to build indicated
+components. Autoconf / automake enabled components with no
+inter-component dependencies (aside from glibc) can supply an empty
+.../build-data/packages/<component>.mk.
+
+.../open-repo/copyimg is a shell script used to copy and (optionally)
+preprocess arbitrary files from per-component directory hierarchies
+onto target system initrd / jffs2 root filesystem images.
+
+Everyday Ebuild
+---------------
+
+This section tells how to do straightforward things with the ebuild
+system. If in doubt, use the force and read the source.
+
+We won't describe how to bootstrap a set of repositories here since
+that is inherently installation-dependent. 
+
+0. To build a cross-compilation toolchain for the xyz platform, "make
+PLATFORM=xyz install-tools.
+
+1. To build the images for the xyz platform: "make PLATFORM=xyx images".
+The results land in .../build-root/images-xyz.
+
+2. To build the foo component for the xyz platform: "make PLATFORM=xyz
+foo-build". If the $repoN/build-data/platforms.mk specifies
+xyz_arch=ppc7450, then the results will land in ../build-root/build-ppc7450/foo.
+
+3. To install the foo component in the xyz platform's
+architecture-dependent installation staging area: "make PLATFORM=xyz
+foo-install".  If the $repoN/build-data/platforms.mk specifies
+xyz_arch=ppc7450, then the results will land in
+../install-ppc7450/foo/{bin,lib,etc}.
+
+4. To rebuild the foo component for the xyz platform from first
+principles: "make PLATFORM=xyz foo-rebuild".
+
+5. To clean the foo component for the xyz platform, "make PLATFORM=xyz
+foo-clean"
+
+6. To clean the foo component and all of the components upon which it
+depends for the xyz platform, "make PLATFORM=xyz foo-wipe"
+
+7. To add a component: first decide which repository should contain
+it. AKA, which directory in SOURCE_PATH will contain the contain it. Create
+the component directory and create a git repository for it. Let's say
+the component is called "newcomp"
+
+Add $repoN/build-data/packages/newcomp.mk. If the component is built
+with autoconf / automake, and has no dependencies aside from glibc,
+newcomp.mk is simply an empty file.
+
+If newcomp depends (for example) on the "clib" library, then newcomp.mk
+contains:
+
+newcomp_configure_depend = clib-install
+newcomp_CPPFLAGS = $(call installed_includes_fn, clib)
+newcomp_LDFLAGS = $(call installed_libs_fn, clib)
+
+If newcomp depend on clib, vlib, and vnet, newcomp.mk contains:
+
+newcomp_configure_depend = vnet-install vlib-install clib-install
+newcomp_CPPFLAGS = $(call installed_includes_fn, vnet vlib clib)
+newcomp_LDFLAGS = $(call installed_libs_fn, vnet vlib clib)
+
+Circular dependencies of the form "a depends on b, b depends on c, and
+c depends on a" won't work.
+
+8. Create appropriate configure.ac / Makefile.am files for a new
+component. A complete discussion of this topic is beyond the scope of
+this note, but here are some hints. 
+
+In many cases, the following configure.ac placed at the root of a
+component is sufficient:
+
+AC_INIT(newcomp, 1.0)
+AM_INIT_AUTOMAKE
+AM_PROG_AS
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_OUTPUT([Makefile])
+
+Makefile.am describes what to build, what to install, CFLAGS, etc. Makefile.am
+for a component comprising a single executable and a few source files
+might look like this:
+
+AUTOMAKE_OPTIONS = foreign
+bin_PROGRAMS = newcomp
+AM_CFLAGS = -Wall
+newcomp_SOURCE = newcomp.c
+newcomp_CPPFLAGS =
+newcomp_LDFLAGS = 
+newcomp_LDADD  = -lpthread
+
+If newcomp uses the clib library -- make sure newcomp.mk is as shown
+above -- ebuild will adjust LDFLAGS to link newcomp against the
+indicated platform-specific version of libclib.so.X.X.  
+
+9. Adding a component to the list of images packaged for a specific
+platform. To add the "newcomp" component to the image list for the xyz
+platform, add the name of the component to "xyz_root_packages"
+variable set in $repoN/build-data/platforms.mk.
+
+Specifically, add "xyz_root_packages += newcomp".
+
+10. Adding files with arbitrary contents (typically shell scripts),
+symbolic links, and so forth to the initrd / jffs2 images packaged for
+a particular platform. 
+
+Pick a component which will be installed on the platform of
+interest. For example, the "scripts" component.
+
+In $repoN/build-data/packages, create the scripts.copyimg
+directory. If you wish to add the file /etc/xyzconf to the initrd /
+jffs2 root, create scripts.copyimg/etc/xyzconfig.
+
+All such directories corresponding to selected packages are or-summed
+to form the eventual initrd / jffs2 directory hierarchy.
+
+11. Adjusting initrd / jffs2 file contents based on environment 
+variable settings; a simple template scheme.
+
+Within .copyimg directories, files with names of the form
+xyz.copyimgspp are preprocessed by the "spp" preprocessor. The canonical
+example: customizing /etc/inittab for a specific platform.
+
+[spp needs to be documented.]
+
+In platforms.mk, set up environment variables for the copyimg script:
+
+myplatform_copyimg_env = \
+SERIAL_CONSOLE_AGETTY="/sbin/agetty /dev/ttyS0 115200,9600 vt100"
+
+.../open-repo/sysvinit.copyimg/etc/inittab.copyimgspp contains this
+template. In this example. not that VIRTUAL_CONSOLES is NOT set:
+
+# The default runlevel. 
+id:3:initdefault:
+
+# Boot-time system configuration/initialization script.
+#   This is run first except when booting in emergency (-b) mode.
+si::sysinit:/etc/rc.d/rc.sysinit
+
+# What to do in single-user mode. 
+~~:S:wait:/sbin/sulogin
+
+# /etc/init.d executes the S and K scripts upon change of runlevel.
+#  Runlevel 0 is halt.
+#  Runlevel 1 is single-user.
+#  Runlevels 2-5 are multi-user.
+#  Runlevel 6 is reboot.
+l0:0:wait:/etc/rc.d/rc 0
+l1:1:wait:/etc/rc.d/rc 1
+l2:2:wait:/etc/rc.d/rc 2
+l3:3:wait:/etc/rc.d/rc 3
+l4:4:wait:/etc/rc.d/rc 4
+l5:5:wait:/etc/rc.d/rc 5
+l6:6:wait:/etc/rc.d/rc 6
+
+# Normally not reached, but fallthrough in case of emergency. 
+z6:6:respawn:/sbin/sulogin
+
+pf::powerfail:/sbin/poweroff -n -h
+
+{if VIRTUAL_CONSOLES=yes
+  {comment Virtual consoles for platform}
+  {text
+# Run gettys in standard runlevels 
+# --noclear is so that console boot messages do not disappear
+# when -- by default -- mingetty clears console screen.
+0:2345:respawn:/sbin/mingetty vc/0 --noclear
+1:2345:respawn:/sbin/mingetty vc/1
+2:2345:respawn:/sbin/mingetty vc/2
+3:2345:respawn:/sbin/mingetty vc/3
+4:2345:respawn:/sbin/mingetty vc/4
+5:2345:respawn:/sbin/mingetty vc/5
+6:2345:respawn:/sbin/mingetty vc/6}}
+
+{if SERIAL_CONSOLE_AGETTY
+  {comment Serial consoles for platform}
+  {text
+T0:23:respawn:{SERIAL_CONSOLE_AGETTY}}}
+
+Here is the resulting file instance of /etc/inittab:
+
+# The default runlevel. 
+id:3:initdefault:
+
+# Boot-time system configuration/initialization script.
+#   This is run first except when booting in emergency (-b) mode.
+si::sysinit:/etc/rc.d/rc.sysinit
+
+# What to do in single-user mode. 
+~~:S:wait:/sbin/sulogin
+
+# /etc/init.d executes the S and K scripts upon change of runlevel.
+#  Runlevel 0 is halt.
+#  Runlevel 1 is single-user.
+#  Runlevels 2-5 are multi-user.
+#  Runlevel 6 is reboot.
+l0:0:wait:/etc/rc.d/rc 0
+l1:1:wait:/etc/rc.d/rc 1
+l2:2:wait:/etc/rc.d/rc 2
+l3:3:wait:/etc/rc.d/rc 3
+l4:4:wait:/etc/rc.d/rc 4
+l5:5:wait:/etc/rc.d/rc 5
+l6:6:wait:/etc/rc.d/rc 6
+
+# Normally not reached, but fallthrough in case of emergency. 
+z6:6:respawn:/sbin/sulogin
+
+pf::powerfail:/sbin/poweroff -n -h
+
+T0:23:respawn:/sbin/agetty /dev/ttyS0 115200,9600 vt100
+
+12. Inspecting the contents of the read-only squashfs aka initrd aka 
+jffs2 root image built for the xyz platform:
+
+In .../open-repo/build-root, issue "unsquashfs images-xyz/ro.img."
+
+Expect some complaints due to device nodes which can't be created (as
+a normal user).
+
+To simply list the files rather than extracting the contents:
+"unsquashfs -ll images-xyz/ro.img"
+
+13. Emacs hint.
+
+Build components or images as follows: "make -C
+.../open-repo/build-root xyz-install", etc.
+
+In other words, supply the absolute path of the open-repo/build-root
+so the command will work properly regardless of the current file. Very
+helpful when fixing compiler errors.
+
+
+
+
+
+
+
