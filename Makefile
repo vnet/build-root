@@ -567,11 +567,14 @@ image_install_fn =								\
   [[ -z "$${image_include_files}" ]]						\
     || tar cf - $${image_include_files} $${image_exclude_files}			\
        | tar xf - -C $${inst_dir} ;						\
-  : copy files from copyimg directory if present ;				\
-  d="$(call package_dir_fn,$(1))/$(1).copyimg" ;				\
-  [[ -d "$${d}" ]]								\
-    && env $($(PLATFORM)_copyimg_env)						\
-	$(MU_BUILD_ROOT_DIR)/copyimg $$d $${inst_dir} ;				\
+  : copy files from copyimg directories on source path if present ;		\
+  for build_data_dir in $(SOURCE_PATH_BUILD_DATA_DIRS) ; do			\
+    d="$${build_data_dir}/packages/$(1).copyimg" ;				\
+    if [ -d "$${d}" ] ; then							\
+      env $($(PLATFORM)_copyimg_env)						\
+	$(MU_BUILD_ROOT_DIR)/copyimg $${d} $${inst_dir} ;			\
+    fi ;									\
+  done ;									\
   : run package dependent install script ;					\
   $(if $($(1)_image_install),							\
        $(image_install_functions)						\
