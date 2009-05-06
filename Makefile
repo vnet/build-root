@@ -217,7 +217,7 @@ NATIVE_TOOLS += mpfr gmp
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
 # Tools for cross-compiling from native -> ARCH
-CROSS_TOOLS = binutils gcc gdb ccache
+CROSS_TOOLS = binutils gcc gdb # ccache
 
 # Tools needed on native host to build for platform
 CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
@@ -285,6 +285,7 @@ $(foreach p,$(ALL_PACKAGES),							\
 # Package configure
 ######################################################################
 
+# x86_64 can be either 32/64.  set BIACH=32 to get 32 bit libraries.
 BIARCH = 64
 
 x86_64_libdir = $(BIARCH)
@@ -465,6 +466,8 @@ install_check_timestamp =					\
 # Source code managment
 ######################################################################
 
+GIT = git
+
 # Maps package name to source directory root.
 # Multiple packages may use a single source tree.
 # For example, gcc-bootstrap package shares gcc source.
@@ -483,11 +486,11 @@ find_source_for_package =									\
   $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
   if [ ! -d "$${s}" ] ; then									\
     d=`dirname $${mk}` ;									\
-    i=`cd $${d}/.. && (git config remote.origin.url ||						\
+    i=`cd $${d}/.. && ($(GIT) config remote.origin.url ||						\
                     awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
     g=`dirname $${i}` ;										\
-    $(call build_msg_fn,Fetching source: git clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
-    if ! git clone $${g}/$(PACKAGE_SOURCE) $$s; then						\
+    $(call build_msg_fn,Fetching source: $(GIT) clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
+    if ! $(GIT) clone $${g}/$(PACKAGE_SOURCE) $$s; then						\
       $(call build_msg_fn,No source for $(PACKAGE) in $${g});					\
       exit 1;											\
     fi ;											\
@@ -511,7 +514,23 @@ find_source_for_package =									\
 	     $(call build_msg_fn,No source for $(PACKAGE)) ;			\
 	     exit 1;								\
 	fi ;									\
-	cd $$s && git $${push_or_pull}
+	cd $$s && $(GIT) $${push_or_pull}
+
+# Pull all packages for platform
+.PHONY: pull-all
+pull-all:
+	@$(BUILD_ENV) ;								\
+	$(call build_msg_fn,Git pull build system) ;				\
+	for d in $(MU_BUILD_ROOT_DIR)						\
+		 $(SOURCE_PATH_BUILD_ROOT_DIRS)					\
+	 	 $(SOURCE_PATH_BUILD_DATA_DIRS); do				\
+	  $(call build_msg_fn,Git pull $${d}) ;					\
+	  pushd $${d} >& /dev/null && $(GIT) pull && popd >& /dev/null ;	\
+	done ;									\
+	$(call build_msg_fn,Git pull build tools) ;				\
+	$(call tool_make_target_fn,pull-all) ;					\
+	$(call build_msg_fn,Git pull packages for platform $(PLATFORM)) ;	\
+	make PLATFORM=$(PLATFORM) $(patsubst %,%-pull-all,$(ROOT_PACKAGES))
 
 ######################################################################
 # System images
@@ -606,7 +625,7 @@ ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$
 
 # readonly root squashfs image
 .PHONY: ro-image
-ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
+$(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
 	@$(BUILD_ENV) ;							\
 	d=$(PLATFORM_IMAGE_DIR) ;					\
 	mkdir -p $$d;							\
@@ -727,11 +746,14 @@ ccache-install:
 
 TOOL_MAKE = $(MAKE) is_build_tool=yes
 
+tool_make_target_fn = 							\
+  $(if $(strip $(NATIVE_TOOLS)),					\
+    $(TOOL_MAKE) $(patsubst %,%-$(1),$(NATIVE_TOOLS)) ARCH=native ;)	\
+  $(TOOL_MAKE) $(patsubst %,%-$(1),$(CROSS_TOOLS))
+
 .PHONY: install-tools
 install-tools:
-	$(if $(strip $(NATIVE_TOOLS)),						\
-	  $(TOOL_MAKE) $(patsubst %,%-install,$(NATIVE_TOOLS)) ARCH=native)
-	$(TOOL_MAKE) $(patsubst %,%-install,$(CROSS_TOOLS))
+	$(call tool_make_target_fn,install)
 
 ######################################################################
 # Clean
