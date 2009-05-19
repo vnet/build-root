@@ -618,7 +618,7 @@ basic_system_image_install =				\
   $(linuxrc_makedev)
 
 .PHONY: basic_system-image_install
-basic_system-image_install: linuxrc-install
+basic_system-image_install: # linuxrc-install
 	$(call image_install_fn,basic_system,			\
 	   $(if $(ARCH:native=),				\
 	        $(TARGET_TOOL_INSTALL_DIR),			\
@@ -717,7 +717,7 @@ rw-image: rw-image-check-type ro-image
 	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
-images: rw-image linux-install linuxrc-install
+images: rw-image linux-install # linuxrc-install
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
