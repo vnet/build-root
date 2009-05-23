@@ -272,7 +272,7 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all
+TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all find-source
 
 # carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
