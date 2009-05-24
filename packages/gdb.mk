@@ -16,3 +16,5 @@ gdb_configure_args += --with-uiout=no
 gdb_configure_args += --disable-werror
 
 gdb_configure_host_and_target = --target=$(TARGET)
+
+gdb_make_parallel_fails = yes

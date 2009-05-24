@@ -14,8 +14,9 @@ glibc_configure_args += --disable-profile
 glibc_make_args = libgcc_eh=-lgcc static-gnulib=-lgcc
 
 # GLIBC -j 16 does not make install properly on some machines.
-# Is this still true?
-# glibc_make_parallel_fails = yes
+# Is this still true? Yes it is..
+
+glibc_make_parallel_fails = yes
 
 glibc_install = \
   $(PACKAGE_MAKE) \

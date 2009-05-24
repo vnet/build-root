@@ -758,6 +758,11 @@ tool_make_target_fn = 							\
 install-tools:
 	$(call tool_make_target_fn,install)
 
+.PHONY: bootstrap-tools
+bootstrap-tools:
+	$(TOOL_MAKE) make-install findutils-install git-install
+
+
 ######################################################################
 # Clean
 ######################################################################
