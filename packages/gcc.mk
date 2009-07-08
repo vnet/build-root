@@ -16,8 +16,8 @@ gcc_configure_args += --disable-shared
 # Depends on GLIBC
 gcc_configure_args += --enable-decimal-float=no
 
-# Only need C compiler
-gcc_configure_args += --enable-languages=c
+# Need C and C++ (for ompi)
+gcc_configure_args += --enable-languages=c,c++
 
 # Disables threads in libgcc.a.  Otherwise we would depend on GLIBC
 # while compiling GCC (chicken & egg problem)
