@@ -3,6 +3,8 @@ gcc_configure_depend = binutils-install
 
 gcc_configure_host_and_target = --target=$(TARGET)
 
+# gcc_make_parallel_fails = yes
+
 # Remove unneeded stuff
 gcc_configure_args = --disable-nls
 gcc_configure_args += --disable-multilib
@@ -16,8 +18,7 @@ gcc_configure_args += --disable-shared
 # Depends on GLIBC
 gcc_configure_args += --enable-decimal-float=no
 
-# Need C and C++ (for ompi)
-gcc_configure_args += --enable-languages=c,c++
+gcc_configure_args += --enable-languages=c
 
 # Disables threads in libgcc.a.  Otherwise we would depend on GLIBC
 # while compiling GCC (chicken & egg problem)
