@@ -24,7 +24,7 @@ cxx_configure_args += --disable-shared
 # Depends on GLIBC
 cxx_configure_args += --enable-decimal-float=no
 
-cxx_configure_args += --enable-languages=c,c++
+cxx_configure_args += --enable-languages=c++
 
 # Disables threads in libgcc.a.  Otherwise we would depend on GLIBC
 # while compiling GCC (chicken & egg problem)
