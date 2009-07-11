@@ -26,10 +26,6 @@ cxx_configure_args += --enable-decimal-float=no
 
 cxx_configure_args += --enable-languages=c++
 
-# Disables threads in libgcc.a.  Otherwise we would depend on GLIBC
-# while compiling GCC (chicken & egg problem)
-cxx_configure_args += --enable-threads=single
-
 # Newer versions of GCC depend on MPFR/GMP libraries
 cxx_configure_args += \
   --with-mpfr-include=$(call installed_include_fn,mpfr) \
