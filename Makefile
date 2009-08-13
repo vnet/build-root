@@ -664,9 +664,12 @@ MKFS_JFFS2_BYTE_ORDER_ppc = -b
 MKFS_JFFS2_BYTE_ORDER_mips = -b
 MKFS_JFFS2_BYTE_ORDER_native = $(MKFS_JFFS2_BYTE_ORDER_$(NATIVE_ARCH))
 
-mkfs_fn_jffs2 = mkfs.jffs2			\
-  --eraseblock=256KiB				\
-  --root=$(1) --output=$(2)			\
+MKFS_JFFS2_SECTOR_SIZE_IN_KBYTES = \
+  $(call ifdef_fn,$(PLATFORM)_jffs2_sector_size_in_kbytes,256)
+
+mkfs_fn_jffs2 = mkfs.jffs2				\
+  --eraseblock=$(MKFS_JFFS2_SECTOR_SIZE_IN_KBYTES)KiB	\
+  --root=$(1) --output=$(2)				\
   $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
 EXT2_RW_IMAGE_SIZE = 16384
