@@ -70,7 +70,10 @@ fi
 # Now that all files have been copied/created we run any shell scripts
 ABS_FROM_DIR=`(cd $FROM_DIR; pwd)`;
 if [ "$SH_FILES" != "" ]; then
-  . $XCOPY_DIR/xcopy-functions.sh;
+  # Allow directory to define some functions
+  if [ -f $FROM_DIR/copyimgsh-functions.sh ]; then
+    . $FROM_DIR/copyimgsh-functions.sh ;
+  fi ;
   for f in $SH_FILES; do
     d=`dirname $f`;
     b=`basename $f`;
