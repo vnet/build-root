@@ -3,3 +3,6 @@ build-*/*
 install-*/*
 tools/*
 images-*/*
+*-pacman
+*-pacman.tar
+*.log
