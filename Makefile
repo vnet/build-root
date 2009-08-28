@@ -438,14 +438,18 @@ installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
 installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
 
 install_package =								\
-    : for non-tools remove anything that might have already been there ;	\
-    $(if $(is_build_tool),,rm -rf $(PACKAGE_INSTALL_DIR) ;)			\
+    : by default, for non-tools, remove any previously installed bits ;		\
+    $(if $(is_build_tool)$($(PACKAGE)_keep_instdir),				\
+         true,									\
+         rm -rf $(PACKAGE_INSTALL_DIR));					\
     mkdir -p $(PACKAGE_INSTALL_DIR) ;						\
+    $(if $($(PACKAGE)_pre_install),$($(PACKAGE)_pre_install),true);		\
     $(if $($(PACKAGE)_install),							\
 	 $($(PACKAGE)_install),							\
 	 $(PACKAGE_MAKE)							\
 	    $($(PACKAGE)_install_args)						\
-	    install)
+	    install) ;								\
+    $(if $($(PACKAGE)_post_install),$($(PACKAGE)_post_install),true)
 
 install_check_timestamp =					\
   @$(BUILD_ENV) ;						\
