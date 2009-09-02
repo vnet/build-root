@@ -52,7 +52,7 @@ function touchme ()
   if [ -n "${touchmebaby}" ] ; then
     echo "*** ${touchmebaby} ${sein} newer than ${victim}  "
     if [ -n "${touch}" ] ; then
-      echo "Fixing " ;echo >> "$victim" ; sleep 1
+      echo "Fixing " ;touch -c "$victim" ; sleep 1
     fi
   fi
 }
