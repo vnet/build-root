@@ -10,6 +10,135 @@ touch=""
 commit=""
 comma_v=""
 
+# The old autowank scheme used "touch <foo> ; sleep 1"
+# to ensure differentiable, ordered timestamps. Worked, but
+# took N seconds given N files to fix. We have an example
+# which wastes multiple minutes given the old scheme.
+#
+# This version generates a sequence of timestamps 
+# starting an hour ago. That gives us
+# lots to play with, in case some obnoxious program feels the need
+# to complain about timestamps in the future.
+
+# If we're in UTC+N land, generate UTC+(N+1) 
+# If we're in UTC-N land, generate UTC-(N-1)
+
+my_tz=`date +%z`
+sign=`echo $my_tz | sed -n -e 's/^\(.\{1\}\).*$/\1/p'`
+t=`echo $my_tz | sed -n -e 's/^\(.\{1\}\)//p'`
+tz_hour=`echo $t | sed -n -e 's/^\(.\{2\}\).*$/\1/p'`
+tz_hour=`echo $tz_hour | sed 's/^0//'`
+
+if [ $sign = "-" ] ; then
+    sign="+"
+    let tz_hour=$tz_hour+1
+    if [[ $tz_hour -ge "24" ]] ; then
+        tz_hour=0
+    fi
+else
+    sign="-"
+    let tz_hour=$tz_hour-1
+    if [[ $tz_hour -lt "0" ]] ; then
+        tz_hour=23
+    fi
+fi
+
+# Timestamp, an hour ago:
+ts_begin=`TZ=UTC${sign}${tz_hour} date +%Y%m%d%H%M.%S`
+
+# break into constituent parts
+year=`echo $ts_begin | sed -n -e 's/^\(.\{4\}\).*$/\1/p'`
+t=`echo $ts_begin | sed -n -e 's/^\(.\{4\}\)//p'`
+month=`echo $t | sed -n -e 's/^\(.\{2\}\).*$/\1/p'`
+t=`echo $t | sed -n -e 's/^\(.\{2\}\)//p'`
+day=`echo $t | sed -n -e 's/^\(.\{2\}\).*$/\1/p'`
+t=`echo $t | sed -n -e 's/^\(.\{2\}\)//p'`
+hour=`echo $t | sed -n -e 's/^\(.\{2\}\).*$/\1/p'`
+t=`echo $t | sed -n -e 's/^\(.\{2\}\)//p'`
+min=`echo $t | sed -n -e 's/^\(.\{2\}\).*$/\1/p'`
+t=`echo $t | sed -n -e 's/^\(.\{2\}\)//p'`
+sec=`echo $t | sed -n -e 's/\.//p'`
+
+# How many days in the current month?
+# Good until someone changes the calendar rules
+days_in_current_month() {
+    if [[ $month -eq 9 || $month -eq 4 \
+        || $month -eq 6 || $month -eq 11 ]] ; then
+	return 30;
+    fi
+    if [[ $month -eq 2 ]] ; then
+	let t=($year/400)*400
+	if [[ $t -eq $year ]] ; then
+	    return 29;
+	fi
+	let t=($year/100)*100
+	if [[ $t -eq $year ]] ; then
+	    return 28;
+	fi
+	let t=($year/4)*4
+	if [[ $t -eq $year ]] ; then
+	    return 29;
+	fi
+	return 28;
+    fi
+    return 31;
+}
+
+# The next timestamp to issue via touch
+# A real hemorrhoid because bash isnt easily convinced
+# that 08 is a decimal number
+next_ts() {
+    sec=`echo $sec | sed 's/^0//'`
+    let sec=$sec+1
+    if [[ "$sec" -lt "60" ]] ; then
+        if [[ "$sec" -lt "10" ]] ; then
+            sec=0$sec
+        fi
+	return 0;
+    fi
+    sec="00"
+    min=`echo $min | sed 's/^0//'`
+    let min=$min+1
+    if [[ "$min" -lt "60" ]] ; then
+        if [[ "$min" -lt "10" ]] ; then
+            min=0$min
+        fi
+	return 0;
+    fi
+    min="00"
+    hour=`echo $hour | sed 's/^0//'`
+    let hour=$hour+1
+    if [[ "$hour" -lt "24" ]] ; then
+        if [[ "$hour" -lt "10" ]] ; then
+            hour=0$hour
+        fi
+	return 0;
+    fi
+    hour="00"
+    days_in_current_month
+    days_in_month=$?
+    if [[ "$day" -lt "$days_in_month" ]] ; then
+        day=`echo $day | sed 's/^0//'`
+	let day=$day+1
+        if [[ "$day" -lt "10" ]] ; then
+            day=0$day
+        fi
+	return 0;
+    fi
+    day="01"
+    month=`echo $month | sed 's/^0//'`
+    let month=$month+1
+    if [[ "$month" -lt "13" ]] ; then
+        if [[ "$month" -lt "10" ]] ; then
+            month=0$month
+        fi
+	return 0;
+    fi
+    month="01"
+    let year=$year+1
+    return 0;
+}
+
 while [ $# != 0 ] ; do
   case "$1" in
     (--commav) comma_v=",v" ;;
@@ -52,7 +181,14 @@ function touchme ()
   if [ -n "${touchmebaby}" ] ; then
     echo "*** ${touchmebaby} ${sein} newer than ${victim}  "
     if [ -n "${touch}" ] ; then
-      echo "Fixing " ;touch -c "$victim" ; sleep 1
+      # 
+      # This is the old version, in case something backfires...
+      # echo "Fixing " ;touch -c "$victim" ; sleep 1
+      # 
+      echo "Fixing "
+      echo touch -c -t $year$month$day$hour$min.$sec "$victim"
+      touch -c -t $year$month$day$hour$min.$sec "$victim"
+      next_ts
     fi
   fi
 }
