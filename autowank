@@ -183,12 +183,13 @@ function touchme ()
     if [ -n "${touch}" ] ; then
       # 
       # This is the old version, in case something backfires...
-      # echo "Fixing " ;touch -c "$victim" ; sleep 1
-      # 
-      echo "Fixing "
-      echo touch -c -t $year$month$day$hour$min.$sec "$victim"
-      touch -c -t $year$month$day$hour$min.$sec "$victim"
-      next_ts
+      echo "Fixing " ;touch -c "$victim" ; sleep 1
+
+      # This is the optimized version
+      # echo "Fixing "
+      # echo touch -c -t $year$month$day$hour$min.$sec "$victim"
+      #touch -c -t $year$month$day$hour$min.$sec "$victim"
+      #next_ts
     fi
   fi
 }
