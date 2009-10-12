@@ -649,11 +649,16 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	      basic_system						\
 	      $(ROOT_PACKAGES)) ;					\
 	  : strip symbols from files ;					\
-	  find $${tmp_dir} -type f					\
-	    -exec							\
-              $(TARGET_PREFIX)strip					\
-                --strip-unneeded '{}' ';'				\
-	        >& /dev/null ;						\
+	  if [ '$${strip_symbols:-yes}' = 'yes' ] ; then		\
+	      echo @@@@ Stripping symbols from files @@@@ ;		\
+	      find $${tmp_dir} -type f					\
+		-exec							\
+		  $(TARGET_PREFIX)strip					\
+		    --strip-unneeded '{}' ';'				\
+		    >& /dev/null ;					\
+	  else								\
+	      echo @@@@ NOT stripping symbols @@@@ ;			\
+	  fi ;								\
 	  : make read-only file system ;				\
 	  mksquashfs							\
 	    $${tmp_dir} $${ro_image}					\
