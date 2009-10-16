@@ -202,7 +202,7 @@ IS_LINUX = $(if $(findstring no,$($(PLATFORM)_uses_linux)),no,yes)
 NATIVE_TOOLS_$(IS_LINUX) += $(NATIVE_TOOLS_LINUX)
 
 # only build glibc for linux installs
-CROSS_TOOLS_$(IS_LINUX) += glibc
+CROSS_TOOLS_$(IS_LINUX) += glibc gcc
 
 # must be first for bootstrapping
 NATIVE_TOOLS = findutils make git spp
@@ -217,7 +217,7 @@ NATIVE_TOOLS += mpfr gmp
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
 # Tools for cross-compiling from native -> ARCH
-CROSS_TOOLS = binutils gcc gdb # ccache
+CROSS_TOOLS = binutils gcc-bootstrap gdb # ccache
 
 # Tools needed on native host to build for platform
 CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
