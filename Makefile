@@ -681,7 +681,9 @@ mkfs_fn_jffs2 = mkfs.jffs2				\
   --root=$(1) --output=$(2)				\
   $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
-EXT2_RW_IMAGE_SIZE = 16384
+# As things stand the actual initrd size parameter
+# is set in .../open-repo/build-data/packages/linuxrc.mk.
+EXT2_RW_IMAGE_SIZE=notused
 
 mkfs_fn_ext2 = \
   e2fsimage -d $(1) -f $(2) -s $(EXT2_RW_IMAGE_SIZE)
