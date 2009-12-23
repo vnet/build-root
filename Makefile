@@ -102,6 +102,7 @@ endif
 # map e.g. ppc7450 -> ppc
 BASIC_ARCH = \
    ${shell case '$(ARCH)' in \
+      (native) echo $(NATIVE_ARCH) ;; \
       (i*86*) echo i386 ;; \
       (ppc*|powerpc*) echo ppc ;; \
       (*) echo '$(ARCH)' ;; \
