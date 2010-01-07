@@ -214,6 +214,9 @@ NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex
 # needed to compile gcc
 NATIVE_TOOLS += mpfr gmp
 
+# Tool to sign binaries
+NATIVE_TOOLS += sign
+
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
@@ -659,6 +662,12 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 		    >& /dev/null ;					\
 	  else								\
 	      echo @@@@ NOT stripping symbols @@@@ ;			\
+	  fi ;								\
+	  if [ '$${sign_executables:-no}' = 'yes'			\
+	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
+	      echo @@@@ Signing executables @@@@ ;			\
+	      find $${tmp_dir} -type f -perm +a=x			\
+		| xargs sign $($(PLATFORM)_public_key) ;		\
 	  fi ;								\
 	  : make read-only file system ;				\
 	  mksquashfs							\
