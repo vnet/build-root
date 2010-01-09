@@ -667,7 +667,8 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
 	      find $${tmp_dir} -type f -perm +a=x			\
-		| xargs sign $($(PLATFORM)_public_key) ;		\
+		| xargs sign $($(PLATFORM)_public_key) 			\
+			     $($(PLATFORM)_private_key_passphrase) ; 	\
 	  fi ;								\
 	  : make read-only file system ;				\
 	  mksquashfs							\
