@@ -666,7 +666,7 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  if [ '$${sign_executables:-no}' = 'yes'			\
 	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
-	      find $${tmp_dir} -type f -perm +a=x			\
+	      find $${tmp_dir} -type f 					\
 		| xargs sign $($(PLATFORM)_public_key) 			\
 			     $($(PLATFORM)_private_key_passphrase) ; 	\
 	  fi ;								\
