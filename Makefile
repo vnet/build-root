@@ -102,6 +102,7 @@ endif
 # map e.g. ppc7450 -> ppc
 BASIC_ARCH = \
    ${shell case '$(ARCH)' in \
+      (native) echo $(NATIVE_ARCH) ;; \
       (i*86*) echo i386 ;; \
       (ppc*|powerpc*) echo ppc ;; \
       (*) echo '$(ARCH)' ;; \
@@ -215,6 +216,9 @@ NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex
 
 # needed to compile gcc
 NATIVE_TOOLS += mpfr gmp
+
+# Tool to sign binaries
+NATIVE_TOOLS += sign
 
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
@@ -662,6 +666,13 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  else								\
 	      echo @@@@ NOT stripping symbols @@@@ ;			\
 	  fi ;								\
+	  if [ '$${sign_executables:-no}' = 'yes'			\
+	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
+	      echo @@@@ Signing executables @@@@ ;			\
+	      find $${tmp_dir} -type f 					\
+		| xargs sign $($(PLATFORM)_public_key) 			\
+			     $($(PLATFORM)_private_key_passphrase) ; 	\
+	  fi ;								\
 	  : make read-only file system ;				\
 	  mksquashfs							\
 	    $${tmp_dir} $${ro_image}					\
@@ -684,7 +695,9 @@ mkfs_fn_jffs2 = mkfs.jffs2				\
   --root=$(1) --output=$(2)				\
   $(MKFS_JFFS2_BYTE_ORDER_$(BASIC_ARCH))
 
-EXT2_RW_IMAGE_SIZE = 16384
+# As things stand the actual initrd size parameter
+# is set in .../open-repo/build-data/packages/linuxrc.mk.
+EXT2_RW_IMAGE_SIZE=notused
 
 mkfs_fn_ext2 = \
   e2fsimage -d $(1) -f $(2) -s $(EXT2_RW_IMAGE_SIZE)
