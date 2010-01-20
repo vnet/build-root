@@ -165,14 +165,17 @@ build_msg_fn = echo "@@@@ $(1) @@@@"
 
 # Always prefer our own tools to those installed on system.
 # Note: ccache-bin must be before tool bin.
-BUILD_ENV = \
-    export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$${PATH} ; \
-    export PATH=$(TOOL_INSTALL_DIR)/bin:$${PATH} ; \
-    : remove . from path present so that we dont try to run ; \
-    : ./mv while cross-compiling mv itself ; \
-    export PATH="`echo $${PATH} | sed -e s/[.]://`" ; \
-    export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ; \
-    set -eu$(BUILD_DEBUG)
+BUILD_ENV =									\
+    export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$${PATH} ;			\
+    export PATH=$(TOOL_INSTALL_DIR)/bin:$${PATH} ;				\
+    : remove . from path present so that we dont try to run ;			\
+    : ./mv while cross-compiling mv itself ;					\
+    export PATH="`echo $${PATH} | sed -e s/[.]://`" ;				\
+    export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;	\
+    set -eu$(BUILD_DEBUG) ;							\
+    : so that pipelines e.g. tar cf - ... | tar xf - ;				\
+    : will fail if first command error exits ;					\
+    set -o pipefail
 
 ######################################################################
 # Package build generic definitions
