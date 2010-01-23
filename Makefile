@@ -169,13 +169,9 @@ build_msg_fn = echo "@@@@ $(1) @@@@"
 BUILD_ENV =									\
     export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$${PATH} ;			\
     export PATH=$(TOOL_INSTALL_DIR)/bin:$${PATH} ;				\
-    : remove . from path present so that we dont try to run ;			\
-    : ./mv while cross-compiling mv itself ;					\
     export PATH="`echo $${PATH} | sed -e s/[.]://`" ;				\
     export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;	\
     set -eu$(BUILD_DEBUG) ;							\
-    : so that pipelines e.g. tar cf - ... | tar xf - ;				\
-    : will fail if first command error exits ;					\
     set -o pipefail
 
 ######################################################################
