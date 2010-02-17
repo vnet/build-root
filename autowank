@@ -9,6 +9,7 @@ set -eu
 touch=""
 commit=""
 comma_v=""
+aclocal=""
 
 # The old autowank scheme used "touch <foo> ; sleep 1"
 # to ensure differentiable, ordered timestamps. Worked, but
@@ -143,12 +144,17 @@ while [ $# != 0 ] ; do
   case "$1" in
     (--commav) comma_v=",v" ;;
     (--touch) touch=yes ;;
+    (--aclocal) aclocal=yes ;;
     (--commit=*) commit="$1" ;;
     (*) echo "$0: usage [--touch|--commit|]" > /dev/stderr
         exit 17 ;;
   esac
   shift
 done
+
+if [ "${aclocal}" != "" -a -f aclocal.m4 ] ; then
+    touch aclocal.m4
+fi
 
 if [ "${comma_v}" != "" -a "${commit}" != "" ] ; then
   echo "No, you may NOT molest ,v files directly.  Go away." > /dev/stderr
