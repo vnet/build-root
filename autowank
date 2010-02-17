@@ -260,7 +260,7 @@ if [ -n "${commit}" ] ; then
              `[ -f configure.in ] && echo configure.in` \
              `[ -f configure.ac ] && echo configure.ac` \
              `[ -f acconfig.h ] && echo acconfig.h` \
-             `find . -mindepth 2 -name '*.m4'`
+             `find . -name '*.m4' -mindepth 2`
 
   # Next aclocal.m4
   [ -f "aclocal.m4" ] && cvs commit -m "${commit}" aclocal.m4
