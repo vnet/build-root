@@ -152,8 +152,14 @@ while [ $# != 0 ] ; do
   shift
 done
 
-if [ "${aclocal}" != "" -a -f aclocal.m4 ] ; then
-    touch aclocal.m4
+if [ "${aclocal}" != "" ] ; then
+    if [ -f aclocal.m4 ] ; then
+        echo touching aclocal.m4
+        touch aclocal.m4
+        sleep 1
+    else
+        echo aclocal.m4 not found
+    fi
 fi
 
 if [ "${comma_v}" != "" -a "${commit}" != "" ] ; then
@@ -200,14 +206,13 @@ function touchme ()
   fi
 }
 
-makefileins="`find . -name Attic -prune -o -name Makefile.in${comma_v}`"
+makefileins="`/usr/bin/find . -name Attic -prune -o -name Makefile.in${comma_v}`"
 
 # aclocal.m4 depends on ***/Makefile.am, configure.ac, acinclude.m4, *.m4 crap
 touchme aclocal.m4${comma_v} \
-        `find . -name Attic -prune -o -name Makefile.am${comma_v}` \
+        `/usr/bin/find . -name Attic -prune -o -name Makefile.am${comma_v}` \
         "configure.in${comma_v}" "configure.ac${comma_v}" \
-        "acinclude.m4${comma_v}" \
-        `find . -name Attic -prune -o -mindepth 2 -name '*.m4${comma_v}'`
+        "acinclude.m4${comma_v}"
 
 # Makefile.in must be newer than Makefile.am
 for f in $makefileins ; do
@@ -260,7 +265,7 @@ if [ -n "${commit}" ] ; then
              `[ -f configure.in ] && echo configure.in` \
              `[ -f configure.ac ] && echo configure.ac` \
              `[ -f acconfig.h ] && echo acconfig.h` \
-             `find . -name '*.m4' -mindepth 2`
+             `/usr/bin/find . -name '*.m4' -mindepth 2`
 
   # Next aclocal.m4
   [ -f "aclocal.m4" ] && cvs commit -m "${commit}" aclocal.m4
