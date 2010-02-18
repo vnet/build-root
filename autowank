@@ -173,6 +173,8 @@ function touchme ()
   shift
   local touchmebaby=""
   local sein="is"
+  local newer="no"
+  local older="no"
 
   if [ ! -r "$victim" ] ; then
     echo "  Possible problem: No $victim exists. " > /dev/stderr 
@@ -181,6 +183,16 @@ function touchme ()
 
   while [ $# != 0 ] ; do
     if [ "${1}" -nt "${victim}" ] ; then
+        newer="yes"
+    fi
+    if [ "${1}" -ot "${victim}" ] ; then
+        older="yes"
+    fi
+    if [ "${newer}" = "no" -a "${older}" = "no" ] ; then
+        newer="yes"
+    fi
+
+    if [ "${newer}" = "yes" ] ; then
       if [ "${touchmebaby}" = "" ] ; then
         touchmebaby="${1}"
       else
