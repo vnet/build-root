@@ -155,8 +155,8 @@ done
 if [ "${aclocal}" != "" ] ; then
     if [ -f aclocal.m4 ] ; then
         echo touching aclocal.m4
-        touch aclocal.m4
         sleep 1
+        touch aclocal.m4
     else
         echo aclocal.m4 not found
     fi
