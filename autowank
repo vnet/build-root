@@ -10,6 +10,7 @@ touch=""
 commit=""
 comma_v=""
 aclocal=""
+optimize="yes"
 
 # The old autowank scheme used "touch <foo> ; sleep 1"
 # to ensure differentiable, ordered timestamps. Worked, but
@@ -145,6 +146,7 @@ while [ $# != 0 ] ; do
     (--commav) comma_v=",v" ;;
     (--touch) touch=yes ;;
     (--aclocal) aclocal=yes ;;
+    (--nooptimize) optimize="" ;;
     (--commit=*) commit="$1" ;;
     (*) echo "$0: usage [--touch|--commit|]" > /dev/stderr
         exit 17 ;;
