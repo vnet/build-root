@@ -10,7 +10,7 @@ touch=""
 commit=""
 comma_v=""
 aclocal=""
-optimize="yes"
+optimize=""
 
 # The old autowank scheme used "touch <foo> ; sleep 1"
 # to ensure differentiable, ordered timestamps. Worked, but
