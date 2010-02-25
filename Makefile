@@ -94,7 +94,7 @@ $(foreach d,$(FULL_SOURCE_PATH), \
   $(eval -include $(d)/platforms.mk))
 
 # Platform should be defined somewhere by specifying $($(PLATFORM)_arch)
-ARCH = $($(PLATFORM)_arch)
+ARCH = $(strip $($(PLATFORM)_arch))
 ifeq ($(ARCH),)
   $(error "Unknown platform `$(PLATFORM)'")
 endif
@@ -557,7 +557,7 @@ find_shared_libs_fn =				\
 # Also include shared libraries.
 DEFAULT_IMAGE_INCLUDE =					\
   for d in bin sbin libexec				\
-           usr/bin usr/sbin usr/libesec			\
+           usr/bin usr/sbin usr/libexec			\
            etc; do					\
     [[ -d $$d ]] && echo $$d;				\
   done ;						\
@@ -626,12 +626,20 @@ basic_system_image_install =				\
 
 .PHONY: basic_system-image_install
 basic_system-image_install: # linuxrc-install
-	$(call image_install_fn,basic_system,			\
-	   $(if $(ARCH:native=),				\
-	        $(TARGET_TOOL_INSTALL_DIR),			\
-	        $(TOOL_INSTALL_DIR)/$(NATIVE_ARCH)-$(OS)))
+	$(if $(ARCH:native=),							\
+	     $(call image_install_fn,basic_system,$(TARGET_TOOL_INSTALL_DIR)),)
 
 ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
+
+.PHONY: install-packages
+install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
+	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;		\
+	rm -rf $${d} ;						\
+	mkdir -p $${d};						\
+	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}	\
+	    $(patsubst %,%-image_install,			\
+	      basic_system					\
+	      $(ROOT_PACKAGES))
 
 # readonly root squashfs image
 .PHONY: ro-image
