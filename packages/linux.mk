@@ -1,21 +1,14 @@
-# Map our notion of ARCH to Linux kernel's.
-BASIC_LINUX_ARCH = \
-   ${shell case '$(ARCH)' in \
-      (i*86*) echo i386 ;; \
-      (ppc*|powerpc*) echo powerpc ;; \
-      (*) echo '$(ARCH)' ;; \
-     esac }
-
-# Arch could be e.g. ppc7450 which we map to e.g. ppc
-DEFAULT_LINUX_ARCH = \
-   ${shell case '$(ARCH)' in \
-      (i*86*) echo i386 ;; \
-      (ppc*|powerpc*) echo ppc ;; \
-      (*) echo '$(ARCH)' ;; \
+# Map our notion of ARCH to Linux kernel Makefile's.
+LINUX_MAKEFILE_ARCH =				\
+   ${shell case '$(ARCH)' in			\
+      (i*86*) echo i386 ;;			\
+      (x86_64) echo x86_64 ;;			\
+      (ppc*|powerpc*) echo powerpc ;;		\
+      (*) echo '$(ARCH)' ;;			\
      esac }
 
 LINUX_ARCH = \
-  $(if $($(PLATFORM)_linux_arch),$($(PLATFORM)_linux_arch),$(BASIC_LINUX_ARCH))
+  $(if $($(PLATFORM)_linux_arch),$($(PLATFORM)_linux_arch),$(LINUX_MAKEFILE_ARCH))
 
 linux_build_dir = linux-$(PLATFORM)
 
@@ -25,9 +18,9 @@ LINUX_MAKE = \
     ARCH=$(LINUX_ARCH) \
     CROSS_COMPILE=$(TARGET)-
 
-linux_config_files_for_platform =						\
-  $(call find_package_file_fn,linux,linux-default-$(DEFAULT_LINUX_ARCH).config)	\
-  $(call find_package_file_fn,linux,linux-$(ARCH).config)			\
+linux_config_files_for_platform =							\
+  $(call find_package_file_fn,linux,linux-default-$(LINUX_MAKEFILE_ARCH).config)	\
+  $(call find_package_file_fn,linux,linux-$(ARCH).config)				\
   $(call find_package_file_fn,linux,linux-$(PLATFORM).config)
 
 # Copy pre-built linux config into compile directory
@@ -36,7 +29,9 @@ linux_configure =									\
   mkdir -p $(PACKAGE_BUILD_DIR) ;							\
   : construct linux config from ARCH and PLATFORM specific pieces ;			\
   b="`mktemp $(PACKAGE_BUILD_DIR)/.tmp-config-XXXXXX`" ;				\
-  cat $(linux_config_files_for_platform) >> $${b} ;					\
+  if [ "`echo $(linux_config_files_for_platform)`" != "" ]; then			\
+    cat $(linux_config_files_for_platform) >> $${b} ;					\
+  fi ;											\
   if [ '0' = `wc -c $${b} | awk '{ print $$1; }'` ]; then				\
     $(call build_msg_fn,No Linux config for platform $(PLATFORM) or arch $(ARCH)) ;	\
     exit 1;										\
@@ -53,9 +48,10 @@ linux_configure =									\
   } ;											\
   $(LINUX_MAKE) Makefile prepare archprepare
 
+# kernel configure depends on config file fragments for platform
 linux_configure_depend = $(linux_config_files_for_platform)
 
-linux_build = \
+linux_build =					\
   : nothing to do
 
 # Install kernel headers for glibc build
