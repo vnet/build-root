@@ -1,29 +1,20 @@
-# This is almost a verbatim copy of gcc.mk
-#
-# It turns out that one can't build the c++ compiler
-# before building glibc.
-
-cxx_configure_depend = gcc-install glibc-install
-
+# GCC install depends on ranlib from binutils
 cxx_source = gcc
-
+cxx_configure_depend = gcc-install glibc-install
+is_build_tool = yes
 cxx_configure_host_and_target = --target=$(TARGET)
 
 # cxx_make_parallel_fails = yes
 
-# Remove unneeded stuff
-cxx_configure_args = --disable-nls
-cxx_configure_args += --disable-multilib
-cxx_configure_args += --disable-libmudflap
-cxx_configure_args += --disable-libssp
-cxx_configure_args += --disable-libgomp
+# kludge to get x86_64 toolchain to build on x86_64
+# see gcc/configure.ac
+cxx_configure_env_x86_64 += GCC_CANADIAN_CROSS_LIB_SUFFIX=64
 
-# Don't want libgcc.a to be shared; this breaks cross-build
-cxx_configure_args += --disable-shared
+cxx_configure_env += $(cxx_configure_env_$(ARCH))
 
-# Depends on GLIBC
-cxx_configure_args += --enable-decimal-float=no
+cxx_configure_args += --enable-multilib=no
 
+cxx_configure_args += --enable-languages=c
 cxx_configure_args += --enable-languages=c++
 
 # Newer versions of GCC depend on MPFR/GMP libraries
@@ -59,4 +50,3 @@ cxx_build = \
   touch $(PACKAGE_BUILD_DIR)/limits_h_kludge/limits.h ; \
   $(PACKAGE_MAKE) ; \
   rm -rf $(PACKAGE_BUILD_DIR)/limits_h_kludge
-
