@@ -638,7 +638,6 @@ install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
 	mkdir -p $${d};						\
 	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}	\
 	    $(patsubst %,%-image_install,			\
-	      basic_system					\
 	      $(ROOT_PACKAGES))
 
 # readonly root squashfs image
