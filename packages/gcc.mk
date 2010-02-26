@@ -5,6 +5,14 @@ gcc_configure_host_and_target = --target=$(TARGET)
 
 # gcc_make_parallel_fails = yes
 
+# kludge to get x86_64 toolchain to build on x86_64
+# see gcc/configure.ac
+gcc_configure_env_x86_64 += GCC_CANADIAN_CROSS_LIB_SUFFIX=64
+
+gcc_configure_env += $(gcc_configure_env_$(ARCH))
+
+gcc_configure_args += --enable-multilib=no
+
 gcc_configure_args += --enable-languages=c
 
 # Newer versions of GCC depend on MPFR/GMP libraries
