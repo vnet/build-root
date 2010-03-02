@@ -170,6 +170,7 @@ BUILD_ENV =									\
     export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$${PATH} ;			\
     export PATH=$(TOOL_INSTALL_DIR)/bin:$${PATH} ;				\
     export PATH="`echo $${PATH} | sed -e s/[.]://`" ;				\
+    $(if $(ARCH:native=),export CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site ;,) \
     export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;	\
     set -eu$(BUILD_DEBUG) ;							\
     set -o pipefail
@@ -299,7 +300,6 @@ arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 
 # Allow packages to override CPPFLAGS, CFLAGS, and LDFLAGS
 CONFIGURE_ENV =								\
-    $(if $(ARCH:native=),CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site,)	\
     $(if $($(PACKAGE)_CPPFLAGS),					\
 	 CPPFLAGS="$(CPPFLAGS) $($(PACKAGE)_CPPFLAGS)")			\
     $(if $($(PACKAGE)_CFLAGS),						\
@@ -400,12 +400,12 @@ PACKAGE_MAKE =					\
     $($(PACKAGE)_make_args)			\
     $(MAKE_PARALLEL_FLAGS)
 
-build_package = \
-  $(call build_msg_fn,Compiling $* in $(PACKAGE_BUILD_DIR)) ; \
-  mkdir -p $(PACKAGE_BUILD_DIR) ; \
-  cd $(PACKAGE_BUILD_DIR) ; \
-  $(if $($(PACKAGE)_build), \
-       $($(PACKAGE)_build), \
+build_package =							\
+  $(call build_msg_fn,Compiling $* in $(PACKAGE_BUILD_DIR)) ;	\
+  mkdir -p $(PACKAGE_BUILD_DIR) ;				\
+  cd $(PACKAGE_BUILD_DIR) ;					\
+  $(if $($(PACKAGE)_build),					\
+       $($(PACKAGE)_build),					\
        $(PACKAGE_MAKE))
 
 build_check_timestamp =									\
