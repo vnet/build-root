@@ -253,7 +253,7 @@ find_filter += -and -not -path '*/.CVS*'
 find_newer_fn =						\
   (! -f $(1)						\
     || -n $(call find_newer_files_fn,$(1),$(3))		\
-    || -n "`find $(2) $(find_filter)			\
+    || -n "`find -H $(2) $(find_filter)			\
             -and -type f -newer $(1) -print -quit`")
 
 ######################################################################
