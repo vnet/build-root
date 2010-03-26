@@ -166,13 +166,13 @@ build_msg_fn = echo "@@@@ $(1) @@@@"
 
 # Always prefer our own tools to those installed on system.
 # Note: ccache-bin must be before tool bin.
-BUILD_ENV =									\
-    export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$${PATH} ;			\
-    export PATH=$(TOOL_INSTALL_DIR)/bin:$${PATH} ;				\
-    export PATH="`echo $${PATH} | sed -e s/[.]://`" ;				\
-    $(if $(ARCH:native=),export CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site ;,) \
-    export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;	\
-    set -eu$(BUILD_DEBUG) ;							\
+BUILD_ENV =										\
+    export CCACHE_DIR=$(MU_BUILD_ROOT_DIR)/.ccache ;					\
+    export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$(TOOL_INSTALL_DIR)/bin:$${PATH} ;	\
+    export PATH="`echo $${PATH} | sed -e s/[.]://`" ;					\
+    $(if $(ARCH:native=),export CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site ;,)	\
+    export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;		\
+    set -eu$(BUILD_DEBUG) ;							        \
     set -o pipefail
 
 ######################################################################
@@ -217,11 +217,14 @@ NATIVE_TOOLS += mpfr gmp
 # Tool to sign binaries
 NATIVE_TOOLS += sign
 
+# ccache
+NATIVE_TOOLS += ccache
+
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
 # Tools for cross-compiling from native -> ARCH
-CROSS_TOOLS = binutils gcc-bootstrap gdb # ccache
+CROSS_TOOLS = binutils gcc-bootstrap gdb
 
 # Tools needed on native host to build for platform
 CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
@@ -769,14 +772,10 @@ images: rw-image linux-install # linuxrc-install
 
 .PHONY: ccache-install
 ccache-install:
-	if which ccache >& /dev/null; then				\
-	  mkdir -p $(TOOL_INSTALL_DIR)/ccache-bin ;			\
-	  c=`which ccache` ;						\
-	  : Link to ccache for native gcc ;				\
-	  ln -sf $$c $(TOOL_INSTALL_DIR)/ccache-bin/gcc ;		\
-	  : Link to ccache for cross-buildr gcc ;			\
-	  ln -sf $$c $(TOOL_INSTALL_DIR)/ccache-bin/$(TARGET)-gcc ;	\
-	fi
+	$(MAKE) -C $(MU_BUILD_ROOT_DIR)	ccache-build
+	mkdir -p $(TOOL_INSTALL_DIR)/ccache-bin
+	ln -sf $(MU_BUILD_ROOT_DIR)/build-tool-native/ccache/ccache \
+		$(TOOL_INSTALL_DIR)/ccache-bin/$(TARGET)-gcc 
 
 TOOL_MAKE = $(MAKE) is_build_tool=yes
 
