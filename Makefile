@@ -781,7 +781,7 @@ TOOL_MAKE = $(MAKE) is_build_tool=yes
 
 tool_make_target_fn = 							\
   $(if $(strip $(NATIVE_TOOLS)),					\
-    $(TOOL_MAKE) $(patsubst %,%-$(1),$(NATIVE_TOOLS)) ARCH=native ;)	\
+    $(TOOL_MAKE) $(patsubst %,%-$(1),$(NATIVE_TOOLS)) ARCH=native || exit 1 ;) \
   $(TOOL_MAKE) $(patsubst %,%-$(1),$(CROSS_TOOLS))
 
 .PHONY: install-tools
