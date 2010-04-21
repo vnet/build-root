@@ -249,6 +249,8 @@ find_filter = -not -name '*~'
 find_filter += -and -not -path '*/.git*'
 find_filter += -and -not -path '*/.svn*'
 find_filter += -and -not -path '*/.CVS*'
+find_filter += -and -not -path '*/manual/*'
+find_filter += -and -not -path '*/autom4te.cache/*'
 
 find_newer_fn =						\
   (! -f $(1)						\
