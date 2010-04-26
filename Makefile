@@ -685,7 +685,7 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  else								\
 	      echo @@@@ NOT stripping symbols @@@@ ;			\
 	  fi ;								\
-	  if [ '$${sign_executables:-no}' = 'yes'			\
+	  if [ $${sign_executables:-yes} = 'yes'			\
 	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
 	      find $${tmp_dir} -type f 					\
