@@ -788,7 +788,7 @@ ccache-install:
 	$(MAKE) -C $(MU_BUILD_ROOT_DIR)	ccache-build
 	mkdir -p $(TOOL_INSTALL_DIR)/ccache-bin
 	ln -sf $(MU_BUILD_ROOT_DIR)/build-tool-native/ccache/ccache \
-		$(TOOL_INSTALL_DIR)/ccache-bin/$(TARGET)-gcc 
+		$(TOOL_INSTALL_DIR)/ccache-bin/$(TARGET_PREFIX)gcc 
 
 TOOL_MAKE = $(MAKE) is_build_tool=yes
 
