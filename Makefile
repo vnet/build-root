@@ -249,6 +249,8 @@ find_filter = -not -name '*~'
 find_filter += -and -not -path '*/.git*'
 find_filter += -and -not -path '*/.svn*'
 find_filter += -and -not -path '*/.CVS*'
+find_filter += -and -not -path '*/manual/*'
+find_filter += -and -not -path '*/autom4te.cache/*'
 
 find_newer_fn =						\
   (! -f $(1)						\
@@ -635,13 +637,24 @@ basic_system-image_install: # linuxrc-install
 ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
 
 .PHONY: install-packages
-install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
+install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))	
 	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;		\
 	rm -rf $${d} ;						\
 	mkdir -p $${d};						\
 	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}	\
 	    $(patsubst %,%-image_install,			\
-	      $(ROOT_PACKAGES))
+	      $(ROOT_PACKAGES))	;				\
+	  : strip symbols from files ; 				\
+	  if [ $${strip_symbols:-no} = 'yes' ] ; then		\
+	      echo @@@@ Stripping symbols from files @@@@ ;	\
+	      find $${d} -type f				\
+		-exec						\
+		  $(TARGET_PREFIX)strip				\
+		    --strip-unneeded '{}' ';'			\
+		    >& /dev/null ;				\
+	  else							\
+	      echo @@@@ NOT stripping symbols @@@@ ;		\
+	  fi 
 
 # readonly root squashfs image
 .PHONY: ro-image
@@ -672,7 +685,7 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  else								\
 	      echo @@@@ NOT stripping symbols @@@@ ;			\
 	  fi ;								\
-	  if [ '$${sign_executables:-no}' = 'yes'			\
+	  if [ $${sign_executables:-yes} = 'yes'			\
 	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
 	      find $${tmp_dir} -type f 					\
