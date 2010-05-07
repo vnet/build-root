@@ -251,6 +251,7 @@ find_filter += -and -not -path '*/.svn*'
 find_filter += -and -not -path '*/.CVS*'
 find_filter += -and -not -path '*/manual/*'
 find_filter += -and -not -path '*/autom4te.cache/*'
+find_filter += -and -not -path '*/doc/all-cfg.texi'
 
 find_newer_fn =						\
   (! -f $(1)						\
@@ -371,6 +372,7 @@ configure_check_timestamp =						\
   mkdir -p $(PACKAGE_INSTALL_DIR) ;					\
   conf="$(TIMESTAMP_DIR)/$(CONFIGURE_TIMESTAMP)" ;			\
   dirs="$(call package_mk_fn,$(PACKAGE))				\
+	$(wildcard $(call find_source_fn,$(PACKAGE_SOURCE))/configure)	\
        $(MU_BUILD_ROOT_DIR)/config.site" ;				\
   if [[ $(call find_newer_fn, $${conf}, $${dirs}, $?) ]]; then		\
     $(configure_package) ;						\
