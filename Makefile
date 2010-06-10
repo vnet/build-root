@@ -206,10 +206,10 @@ NATIVE_TOOLS_$(IS_LINUX) += $(NATIVE_TOOLS_LINUX)
 CROSS_TOOLS_$(IS_LINUX) += glibc gcc
 
 # must be first for bootstrapping
-NATIVE_TOOLS = findutils make git spp
+NATIVE_TOOLS = findutils make spp
 
 # basic tools needed for build system
-NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex
+NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex tar
 
 # needed to compile gcc
 NATIVE_TOOLS += mpfr gmp
