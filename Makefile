@@ -206,10 +206,10 @@ NATIVE_TOOLS_$(IS_LINUX) += $(NATIVE_TOOLS_LINUX)
 CROSS_TOOLS_$(IS_LINUX) += glibc gcc
 
 # must be first for bootstrapping
-NATIVE_TOOLS = findutils make git spp
+NATIVE_TOOLS = findutils make spp
 
 # basic tools needed for build system
-NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex
+NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex tar
 
 # needed to compile gcc
 NATIVE_TOOLS += mpfr gmp
@@ -627,9 +627,7 @@ basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\
   mkdir -p usr usr/{bin,sbin} usr/lib ;			\
   mkdir -p var var/{lib,lock,log,run,tmp} ;		\
-  mkdir -p var/lock/subsys var/lib/urandom ;		\
-  : make dev directory ;				\
-  $(linuxrc_makedev)
+  mkdir -p var/lock/subsys var/lib/urandom 
 
 .PHONY: basic_system-image_install
 basic_system-image_install: # linuxrc-install
@@ -645,6 +643,7 @@ install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
 	mkdir -p $${d};						\
 	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}	\
 	    $(patsubst %,%-image_install,			\
+	      basic_system					\
 	      $(ROOT_PACKAGES))	;				\
 	  : strip symbols from files ; 				\
 	  if [ $${strip_symbols:-no} = 'yes' ] ; then		\
@@ -676,6 +675,8 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	    $(patsubst %,%-image_install,				\
 	      basic_system						\
 	      $(ROOT_PACKAGES)) ;					\
+	  : make dev directory ;					\
+	  $(linuxrc_makedev) ;						\
 	  : strip symbols from files ;					\
 	  if [ '$${strip_symbols:-yes}' = 'yes' ] ; then		\
 	      echo @@@@ Stripping symbols from files @@@@ ;		\
