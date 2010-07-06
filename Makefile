@@ -829,9 +829,10 @@ package_clean_script =							\
 
 # Wipe e.g. remove build and install directories for packages.
 package_wipe_script =						\
-  @$(call build_msg_fn, Wiping build/install $(PACKAGE)) ;	\
+  @message=$(if $(is_build_tool),"Wiping build $(PACKAGE)","Wiping build/install $(PACKAGE)") ;      						\
+  $(call build_msg_fn,$$message) ;				\
   $(BUILD_ENV) ;						\
-  rm -rf $(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR)
+  rm -rf $(if $(is_build_tool),$(PACKAGE_BUILD_DIR),$(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR))
 
 .PHONY: %-wipe
 %-wipe:
