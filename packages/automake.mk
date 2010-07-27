@@ -1,3 +1,5 @@
+automake_configure_depend = autoconf-install
+
 automake_configure =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;                  \
   cd $$s ;							\
