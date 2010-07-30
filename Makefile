@@ -556,9 +556,9 @@ IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/image-$(PLATFORM)
 find_shared_libs_fn =				\
   find $(1)					\
     -maxdepth 1					\
-       -regex '.*/lib[a-z_]+.so'		\
-    -o -regex '.*/lib[a-z_]+-[0-9.]+.so'	\
-    -o -regex '.*/lib[a-z_]+.so.[0-9.]+'
+       -regex '.*/lib[a-z_]+\+?\+?.so'		\
+    -o -regex '.*/lib[a-z_]+-[0-9.]+\+?\+?.so'	\
+    -o -regex '.*/lib[a-z_]+\+?\+?.so.[0-9.]+'
 
 # By default pick up files from binary directories and /etc.
 # Also include shared libraries.
