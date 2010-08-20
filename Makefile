@@ -597,7 +597,7 @@ image_install_fn =								\
     image_exclude_files="${image_exclude_files}					\
                          $(patsubst %,--exclude=%,$($(1)_image_exclude))" ;	\
   fi ;										\
-  [[ -z "$${image_include_files}" ]]						\
+  [[ -z "$${image_include_files}" || $${image_include_files} == " " ]]		\
     || tar cf - $${image_include_files} $${image_exclude_files}			\
        | tar xf - -C $${inst_dir} ;						\
   : copy files from copyimg directories on source path if present ;		\
