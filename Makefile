@@ -184,6 +184,12 @@ package_dir_fn = \
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
+#next version
+#pkgPhaseDependMacro = $(foreach x,configure build install,                  \
+			$(eval $(1)_$(x)_depend := $($(1)_depend:%=%-$(x))))
+#version equivalent to original code
+pkgPhaseDependMacro = $(eval $(1)_configure_depend := $($(1)_depend:%=%-install))
+
 $(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)), \
   $(eval -include $(d)/*.mk) \
   $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk))))
