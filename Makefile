@@ -136,7 +136,12 @@ tool_or_package_fn = $(if $(is_build_tool),tool,package)
 
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
+
+# we will deprecate INSTALL_DIR shortly for DFLT_INSTALL_DIR
 INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+# DFLT_INSTALL_DIR used in platforms.mk for $(PLATFORM)_DESTDIR_BASE
+DFLT_INSTALL_DIR := $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # Default VAR, package specified override of default PACKAGE_VAR
@@ -321,6 +326,24 @@ CONFIGURE_ENV =								\
     $(if $($(PACKAGE)_LDFLAGS),						\
 	 LDFLAGS="$(LDFLAGS) $($(PACKAGE)_LDFLAGS)")			\
     $(if $($(PACKAGE)_configure_env),$($(PACKAGE)_configure_env))
+
+# only partially used now (used in a few .mk files)
+ifeq ($(is_build_tool),yes)
+prefix     = $(PACKAGE_INSTALL_DIR)
+libdir     = $(PACKAGE_INSTALL_DIR)/$(arch_lib_dir)
+libexecdir = $(PACKAGE_INSTALL_DIR)/usr/libexec
+DESTDIR     = /
+else
+# Eventually simplify this with no per package DESTDIR or prefix
+ppdMacro = $(if $(PER_PACKAGE_DESTDIR),$(call package_build_dir_fn,$(1)))
+pppMacro = $(if $(PER_PACKAGE_PREFIX),$(call package_build_dir_fn,$(1)))
+prefixMacro     = $($(PLATFORM)_PREFIX_BASE)/$(pppMacro)
+prefix = $(call prefixMacro,$(PACKAGE))
+libdir     = $($(PLATFORM)_LIBDIR)
+libexecdir = $($(PLATFORM)_LIBEXECDIR)
+destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
+DESTDIR  = $(call destdirMacro,$(PACKAGE))
+endif
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
