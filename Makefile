@@ -836,7 +836,7 @@ install-tools:
 .PHONY: bootstrap-tools
 bootstrap-tools:
 	$(TOOL_MAKE) make-install findutils-install git-install \
-	fakeroot-install
+	automake-install autoconf-install fakeroot-install
 
 
 ######################################################################
