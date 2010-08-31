@@ -231,6 +231,9 @@ NATIVE_TOOLS += sign
 # ccache
 NATIVE_TOOLS += ccache
 
+# rpcc
+NATIVE_TOOLS += rpcc
+
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
