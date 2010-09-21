@@ -137,20 +137,14 @@ tag_var_with_added_space_fn = $(if $($(TAG)_TAG_$(1)),$($(TAG)_TAG_$(1)) )
 
 # TAG=debug for debugging
 debug_TAG_CFLAGS = -g -O0 -DDEBUG
-debug_TAG_CPPFLAGS = -DDEBUG
-debug_TAG_CCASFLAGS = -DDEBUG
 debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 
 # TAG=o2
 o2_TAG_CFLAGS = -g -O2
-o2_TAG_CPPFLAGS =
-o2_TAG_CCASFLAGS =
 o2_TAG_LDFLAGS = -g -O2
 
 # TAG=o3
 o3_TAG_CFLAGS = -g -O3
-o3_TAG_CPPFLAGS =
-o3_TAG_CCASFLAGS =
 o3_TAG_LDFLAGS = -g -O3
 
 BUILD_PREFIX_package = build-$(TAG_PREFIX)
