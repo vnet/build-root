@@ -157,7 +157,12 @@ tool_or_package_fn = $(if $(is_build_tool),tool,package)
 
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
+
+# we will deprecate INSTALL_DIR shortly for DFLT_INSTALL_DIR
 INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+# DFLT_INSTALL_DIR used in platforms.mk for $(PLATFORM)_DESTDIR_BASE
+DFLT_INSTALL_DIR := $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # $(call VAR,DEFAULT)
@@ -208,6 +213,12 @@ package_dir_fn = \
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
+#next version
+#pkgPhaseDependMacro = $(foreach x,configure build install,                  \
+			$(eval $(1)_$(x)_depend := $($(1)_depend:%=%-$(x))))
+#version equivalent to original code
+pkgPhaseDependMacro = $(eval $(1)_configure_depend := $($(1)_depend:%=%-install))
+
 $(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)), \
   $(eval -include $(d)/*.mk) \
   $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk))))
@@ -243,6 +254,9 @@ NATIVE_TOOLS += sign
 
 # ccache
 NATIVE_TOOLS += ccache
+
+# rpcc
+NATIVE_TOOLS += rpcc
 
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
@@ -342,6 +356,24 @@ CONFIGURE_ENV =								\
     $(if $(call configure_var_fn,LDFLAGS),				\
 	 LDFLAGS="$(LDFLAGS) $(call configure_var_fn,LDFLAGS)")		\
     $(if $($(PACKAGE)_configure_env),$($(PACKAGE)_configure_env))
+
+# only partially used now (used in a few .mk files)
+ifeq ($(is_build_tool),yes)
+prefix     = $(PACKAGE_INSTALL_DIR)
+libdir     = $(PACKAGE_INSTALL_DIR)/$(arch_lib_dir)
+libexecdir = $(PACKAGE_INSTALL_DIR)/usr/libexec
+DESTDIR     = /
+else
+# Eventually simplify this with no per package DESTDIR or prefix
+ppdMacro = $(if $(PER_PACKAGE_DESTDIR),$(call package_build_dir_fn,$(1)))
+pppMacro = $(if $(PER_PACKAGE_PREFIX),$(call package_build_dir_fn,$(1)))
+prefixMacro     = $($(PLATFORM)_PREFIX_BASE)/$(pppMacro)
+prefix = $(call prefixMacro,$(PACKAGE))
+libdir     = $($(PLATFORM)_LIBDIR)
+libexecdir = $($(PLATFORM)_LIBEXECDIR)
+destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
+DESTDIR  = $(call destdirMacro,$(PACKAGE))
+endif
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -583,9 +615,9 @@ IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/image-$(PLATFORM)
 find_shared_libs_fn =				\
   find $(1)					\
     -maxdepth 1					\
-       -regex '.*/lib[a-z_]+.so'		\
-    -o -regex '.*/lib[a-z_]+-[0-9.]+.so'	\
-    -o -regex '.*/lib[a-z_]+.so.[0-9.]+'
+       -regex '.*/lib[a-z_]+\+?\+?.so'		\
+    -o -regex '.*/lib[a-z_]+-[0-9.]+\+?\+?.so'	\
+    -o -regex '.*/lib[a-z_]+\+?\+?.so.[0-9.]+'
 
 # By default pick up files from binary directories and /etc.
 # Also include shared libraries.
@@ -624,7 +656,7 @@ image_install_fn =								\
     image_exclude_files="${image_exclude_files}					\
                          $(patsubst %,--exclude=%,$($(1)_image_exclude))" ;	\
   fi ;										\
-  [[ -z "$${image_include_files}" ]]						\
+  [[ -z "$${image_include_files}" || $${image_include_files} == " " ]]		\
     || tar cf - $${image_include_files} $${image_exclude_files}			\
        | tar xf - -C $${inst_dir} ;						\
   : copy files from copyimg directories on source path if present ;		\
@@ -834,7 +866,7 @@ install-tools:
 .PHONY: bootstrap-tools
 bootstrap-tools:
 	$(TOOL_MAKE) make-install findutils-install git-install \
-	fakeroot-install
+	automake-install autoconf-install libtool-install fakeroot-install
 
 
 ######################################################################
@@ -855,10 +887,11 @@ package_clean_script =							\
 	$(package_clean_script)
 
 # Wipe e.g. remove build and install directories for packages.
-package_wipe_script =								\
-  @$(call build_msg_fn, Wiping $(PACKAGE_BUILD_DIR) $(PACKAGE_INSTALL_DIR)) ;	\
-  $(BUILD_ENV) ;								\
-  rm -rf $(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR)
+package_wipe_script =											\
+  @message=$(if $(is_build_tool),"Wiping build $(PACKAGE)","Wiping build/install $(PACKAGE)") ;		\
+  $(call build_msg_fn,$$message) ;									\
+  $(BUILD_ENV) ;											\
+  rm -rf $(if $(is_build_tool),$(PACKAGE_BUILD_DIR),$(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR))
 
 .PHONY: %-wipe
 %-wipe:

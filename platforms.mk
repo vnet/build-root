@@ -26,6 +26,58 @@ PLATFORM = native
 
 native_arch = native
 
+# Set PREFIX_BASE to empty string is equivalent to setting prefix to /
+# You can change PREFIX_BASE and DESTDIR_BASE, along with PER_PACKAGE_{PREFIX,DESTDIR},
+#  to meet special requirements.
+#
+# For example,
+#	qnative_PREFIX_BASE = /home/joecisco
+#	qnative_DESTDIR_BASE = /
+#	PER_PACKAGE_DESTDIR =
+#	PER_PACKAGE_PREFIX =
+# will install everything under joecisco's home directory, and ready to run,
+# i.e., a direct install; no staging area.
+#
+# Example 2
+#	qasmp_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+#	qasmp_DESTDIR_BASE =
+#	PER_PACKAGE_DESTDIR =
+#	PER_PACKAGE_PREFIX = yes
+# will create the same style install tree as from the original ebuild.
+
+PER_PACKAGE_DESTDIR =
+PER_PACKAGE_PREFIX = yes
+
+qnative_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+qnative_LIBDIR = $(prefix)/lib64
+qnative_LIBEXECDIR = $(prefix)/usr/libexec
+qnative_DATAROOTDIR = $(prefix)/usr/share
+qnative_DESTDIR_BASE =
+
+qasmp_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+qasmp_LIBDIR = $(prefix)/lib
+qasmp_LIBEXECDIR = $(prefix)/usr/libexec
+qasmp_DATAROOTDIR = $(prefix)/usr/share
+qasmp_DESTDIR_BASE =
+
+qsp_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+qsp_LIBDIR = $(prefix)/lib
+qsp_LIBEXECDIR = $(prefix)/usr/libexec
+qsp_DATAROOTDIR = $(prefix)/usr/share
+qsp_DESTDIR_BASE =
+
+qtko_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+qtko_LIBDIR = $(prefix)/lib64
+qtko_LIBEXECDIR = $(prefix)/usr/libexec
+qtko_DATAROOTDIR = $(prefix)/usr/share
+qtko_DESTDIR_BASE =
+
+qtkoboot_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+qtkoboot_LIBDIR = $(prefix)/lib
+qtkoboot_LIBEXECDIR = $(prefix)/usr/libexec
+qtkoboot_DATAROOTDIR = $(prefix)/usr/share
+qtkoboot_DESTDIR_BASE =
+
 # Default for which packages go into read-only image
 # used to have pam
 default_root_packages = bash coreutils sysvinit util-linux mingetty procps
