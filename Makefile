@@ -139,6 +139,10 @@ tag_var_with_added_space_fn = $(if $($(TAG)_TAG_$(1)),$($(TAG)_TAG_$(1)) )
 debug_TAG_CFLAGS = -g -O0 -DDEBUG
 debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 
+# TAG=prof for profiling
+prof_TAG_CFLAGS = -g -pg -O2
+prof_TAG_LDFLAGS = -g -pg -O2
+
 # TAG=o2
 o2_TAG_CFLAGS = -g -O2
 o2_TAG_LDFLAGS = -g -O2
