@@ -126,10 +126,31 @@ TARGET_PREFIX = $(if $(ARCH:native=),$(TARGET)-,)
 # The package we are currently working on
 PACKAGE = $*
 
-BUILD_PREFIX_package = build-
-BUILD_PREFIX_tool = build-tool-
-INSTALL_PREFIX = install-
-IMAGES_PREFIX = images-
+# Build/install tags.  This lets you have different CFLAGS/CPPFLAGS/LDFLAGS
+# for e.g. debug versus optimized compiles.  Each tag has its own set of build/install
+# areas.
+TAG = 
+TAG_PREFIX = $(if $(TAG),$(TAG)-)
+
+# yes you need the space
+tag_var_with_added_space_fn = $(if $($(TAG)_TAG_$(1)),$($(TAG)_TAG_$(1)) )
+
+# TAG=debug for debugging
+debug_TAG_CFLAGS = -g -O0 -DDEBUG
+debug_TAG_LDFLAGS = -g -O0 -DDEBUG
+
+# TAG=o2
+o2_TAG_CFLAGS = -g -O2
+o2_TAG_LDFLAGS = -g -O2
+
+# TAG=o3
+o3_TAG_CFLAGS = -g -O3
+o3_TAG_LDFLAGS = -g -O3
+
+BUILD_PREFIX_package = build-$(TAG_PREFIX)
+BUILD_PREFIX_tool = build-tool-$(TAG_PREFIX)
+INSTALL_PREFIX = install-$(TAG_PREFIX)
+IMAGES_PREFIX = images-$(TAG_PREFIX)
 
 # Whether we are building a tool or not
 tool_or_package_fn = $(if $(is_build_tool),tool,package)
@@ -144,8 +165,11 @@ DFLT_INSTALL_DIR := $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
 
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
+# $(call VAR,DEFAULT)
+override_var_with_default_fn = $(if $($(1)),$($(1)),$(2))
+
 # Default VAR, package specified override of default PACKAGE_VAR
-package_var_fn = $(if $($(1)_$(2)),$($(1)_$(2)),$(1))
+package_var_fn = $(call override_var_with_default_fn,$(1)_$(2),$(1))
 
 package_build_dir_fn = $(call package_var_fn,$(1),build_dir)
 
@@ -318,16 +342,19 @@ native_libdir = $($(NATIVE_ARCH)_libdir)
 # lib or lib64 depending
 arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 
+configure_var_fn = \
+  $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
+
 # Allow packages to override CPPFLAGS, CFLAGS, and LDFLAGS
 CONFIGURE_ENV =								\
-    $(if $($(PACKAGE)_CPPFLAGS),					\
-	 CPPFLAGS="$(CPPFLAGS) $($(PACKAGE)_CPPFLAGS)")			\
-    $(if $($(PACKAGE)_CFLAGS),						\
-	 CFLAGS="$(CFLAGS) $($(PACKAGE)_CFLAGS)")			\
-    $(if $($(PACKAGE)_CCASFLAGS),					\
-	 CCASFLAGS="$(CCASFLAGS) $($(PACKAGE)_CCASFLAGS)")		\
-    $(if $($(PACKAGE)_LDFLAGS),						\
-	 LDFLAGS="$(LDFLAGS) $($(PACKAGE)_LDFLAGS)")			\
+    $(if $(call configure_var_fn,CPPFLAGS),				\
+	 CPPFLAGS="$(CPPFLAGS) $(call configure_var_fn,CPPFLAGS)")	\
+    $(if $(call configure_var_fn,CFLAGS),				\
+	 CFLAGS="$(CFLAGS) $(call configure_var_fn,CFLAGS)")		\
+    $(if $(call configure_var_fn,CCASFLAGS),				\
+	 CCASFLAGS="$(CCASFLAGS) $(call configure_var_fn,CCASFLAGS)")	\
+    $(if $(call configure_var_fn,LDFLAGS),				\
+	 LDFLAGS="$(LDFLAGS) $(call configure_var_fn,LDFLAGS)")		\
     $(if $($(PACKAGE)_configure_env),$($(PACKAGE)_configure_env))
 
 # only partially used now (used in a few .mk files)
@@ -860,15 +887,22 @@ package_clean_script =							\
 	$(package_clean_script)
 
 # Wipe e.g. remove build and install directories for packages.
-package_wipe_script =						\
-  @message=$(if $(is_build_tool),"Wiping build $(PACKAGE)","Wiping build/install $(PACKAGE)") ;      						\
-  $(call build_msg_fn,$$message) ;				\
-  $(BUILD_ENV) ;						\
+package_wipe_script =											\
+  @message=$(if $(is_build_tool),"Wiping build $(PACKAGE)","Wiping build/install $(PACKAGE)") ;		\
+  $(call build_msg_fn,$$message) ;									\
+  $(BUILD_ENV) ;											\
   rm -rf $(if $(is_build_tool),$(PACKAGE_BUILD_DIR),$(PACKAGE_INSTALL_DIR) $(PACKAGE_BUILD_DIR))
 
 .PHONY: %-wipe
 %-wipe:
 	$(package_wipe_script)
+
+# Wipe entire build/install area for TAG and PLATFORM
+.PHONY: wipe-all
+wipe-all:
+	@$(call build_msg_fn, Wiping $(BUILD_DIR) $(INSTALL_DIR)) ;	\
+	$(BUILD_ENV) ;							\
+	rm -rf $(BUILD_DIR) $(INSTALL_DIR)
 
 # Clean everything
 distclean:
