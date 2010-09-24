@@ -38,8 +38,10 @@ SOURCE_PATH =
 MU_BUILD_ROOT_NAME = $(shell basename $(MU_BUILD_ROOT_DIR))
 MU_BUILD_DATA_DIR_NAME = build-data
 
-SOURCE_PATH_BUILD_ROOT_DIRS = $(addsuffix /$(MU_BUILD_NAME),$(SOURCE_PATH))
-SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(SOURCE_PATH))
+ABSOLUTE_SOURCE_PATH = $(foreach d,$(SOURCE_PATH),$(shell cd $(d) && pwd))
+
+SOURCE_PATH_BUILD_ROOT_DIRS = $(addsuffix /$(MU_BUILD_NAME),$(ABSOLUTE_SOURCE_PATH))
+SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(ABSOLUTE_SOURCE_PATH))
 
 # For tools use build-root as source path, otherwise use given source path
 FIND_SOURCE_PATH =						\
