@@ -10,6 +10,9 @@ glibc_configure_prefix = --prefix=/usr
 # This saves a bit of time
 glibc_configure_args += --disable-profile
 
+# Platform dependent configure flags
+glibc_configure_args += $(glibc_configure_args_$(PLATFORM))
+
 # Hack to allow glibc to compile with static libgcc.a
 glibc_make_args = libgcc_eh=-lgcc static-gnulib=-lgcc
 
