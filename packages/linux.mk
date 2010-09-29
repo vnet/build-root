@@ -58,4 +58,4 @@ linux_build =					\
 linux_install = \
   i=$(TARGET_TOOL_INSTALL_DIR) ; \
   mkdir -p $$i ; \
-  $(LINUX_MAKE) INSTALL_HDR_PATH="$$i" headers_install
+  $(LINUX_MAKE) INSTALL_HDR_PATH="$$i/linux" headers_install

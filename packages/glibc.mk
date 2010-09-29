@@ -2,7 +2,7 @@
 glibc_configure_depend = gcc-bootstrap-install linux-install
 
 # Point GLIBC at installed Linux headers
-glibc_configure_args = --with-headers=$(TARGET_TOOL_INSTALL_DIR)/include
+glibc_configure_args = --with-headers=$(TARGET_TOOL_INSTALL_DIR)/linux/include
 
 # Override default prefix of $(PACKAGE_INSTALL_DIR)
 glibc_configure_prefix = --prefix=/usr
