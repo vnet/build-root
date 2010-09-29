@@ -117,9 +117,13 @@ ifdef_fn = $(if $(patsubst undefined,,$(origin $(1))),$($(1)),$(2))
 
 spu_target = spu
 native_target =
+
+is_native = $(if $(ARCH:native=),,true)
+not_native = $(if $(ARCH:native=),true,)
+
 ARCH_TARGET_tmp = $(call ifdef_fn,$(ARCH)_target,$(ARCH)-$(OS))
 TARGET = $(call ifdef_fn,$(PLATFORM)_target,$(ARCH_TARGET_tmp))
-TARGET_PREFIX = $(if $(ARCH:native=),$(TARGET)-,)
+TARGET_PREFIX = $(if $(not_native),$(TARGET)-,)
 
 ######################################################################
 # Generic build stuff
@@ -207,7 +211,7 @@ BUILD_ENV =										\
     export CCACHE_DIR=$(MU_BUILD_ROOT_DIR)/.ccache ;					\
     export PATH=$(TOOL_INSTALL_DIR)/ccache-bin:$(TOOL_INSTALL_DIR)/bin:$${PATH} ;	\
     export PATH="`echo $${PATH} | sed -e s/[.]://`" ;					\
-    $(if $(ARCH:native=),export CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site ;,)	\
+    $(if $(not_native),export CONFIG_SITE=$(MU_BUILD_ROOT_DIR)/config.site ;,)	\
     export LD_LIBRARY_PATH=$(TOOL_INSTALL_DIR)/lib64:$(TOOL_INSTALL_DIR)/lib ;		\
     set -eu$(BUILD_DEBUG) ;							        \
     set -o pipefail
@@ -367,7 +371,7 @@ CROSS_LDFLAGS =											\
   -Wl,--dynamic-linker=$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)/$(DYNAMIC_LINKER)	\
   -Wl,-rpath -Wl,$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)
 
-cross_ldflags = $(if $(is_build_tool),,$(if $(ARCH:native=),$(CROSS_LDFLAGS) ,))
+cross_ldflags = $(if $(or $(is_native) $(is_build_tool)),,$(CROSS_LDFLAGS) )
 
 configure_var_fn = \
   $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
@@ -416,7 +420,7 @@ configure_package_gnu =						\
     $$s/configure						\
       $(if $($(PACKAGE)_configure_host_and_target),		\
            $($(PACKAGE)_configure_host_and_target),		\
-           $(if $(ARCH:native=),--host=$(TARGET),))		\
+           $(if $(not_native),--host=$(TARGET),))		\
       $(if $($(PACKAGE)_configure_prefix),			\
            $($(PACKAGE)_configure_prefix),			\
            --libdir=$(PACKAGE_INSTALL_DIR)/$(arch_lib_dir)	\
@@ -721,7 +725,7 @@ basic_system_image_install =				\
 
 .PHONY: basic_system-image_install
 basic_system-image_install: # linuxrc-install
-	$(if $(ARCH:native=),							\
+	$(if $(not_native),							\
 	     $(call image_install_fn,basic_system,$(TARGET_TOOL_INSTALL_DIR)),)
 
 ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$(default_root_packages))
