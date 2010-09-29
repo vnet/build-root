@@ -26,6 +26,8 @@ PLATFORM = native
 
 native_arch = native
 
+### BURT
+
 # Set PREFIX_BASE to empty string is equivalent to setting prefix to /
 # You can change PREFIX_BASE and DESTDIR_BASE, along with PER_PACKAGE_{PREFIX,DESTDIR},
 #  to meet special requirements.
@@ -77,6 +79,8 @@ qtkoboot_LIBDIR = $(prefix)/lib
 qtkoboot_LIBEXECDIR = $(prefix)/usr/libexec
 qtkoboot_DATAROOTDIR = $(prefix)/usr/share
 qtkoboot_DESTDIR_BASE =
+
+### BURT
 
 # Default for which packages go into read-only image
 # used to have pam

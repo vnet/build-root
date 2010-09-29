@@ -164,10 +164,12 @@ tool_or_package_fn = $(if $(is_build_tool),tool,package)
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
 
+## BURT
 # we will deprecate INSTALL_DIR shortly for DFLT_INSTALL_DIR
 INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
 # DFLT_INSTALL_DIR used in platforms.mk for $(PLATFORM)_DESTDIR_BASE
 DFLT_INSTALL_DIR := $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
+## BURT
 
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
@@ -219,11 +221,15 @@ package_dir_fn = \
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
+### BURT
+
 #next version
 #pkgPhaseDependMacro = $(foreach x,configure build install,                  \
 			$(eval $(1)_$(x)_depend := $($(1)_depend:%=%-$(x))))
 #version equivalent to original code
 pkgPhaseDependMacro = $(eval $(1)_configure_depend := $($(1)_depend:%=%-install))
+
+### BURT
 
 $(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)), \
   $(eval -include $(d)/*.mk) \
@@ -348,8 +354,25 @@ native_libdir = $($(NATIVE_ARCH)_libdir)
 # lib or lib64 depending
 arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 
+# find dynamic linker as absolute path
+TOOL_INSTALL_LIB_DIR=$(TOOL_INSTALL_DIR)/$(TARGET)/$(arch_lib_dir)
+DYNAMIC_LINKER=${shell cd $(TOOL_INSTALL_LIB_DIR); echo ld*.so.*}
+
+# Pad dynamic linker & rpath so elftool will never have to change ELF section sizes.
+# Yes, this is a kludge.
+lots_of_slashes_to_pad_names = "//////////////////////////////////////////////////////////////"
+
+# When PLATFORM != native we *always* use our own versions of GLIBC and dynamic linker
+CROSS_LDFLAGS =											\
+  -Wl,--dynamic-linker=$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)/$(DYNAMIC_LINKER)	\
+  -Wl,-rpath -Wl,$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)
+
+cross_ldflags = $(if $(ARCH:native=),$(CROSS_LDFLAGS) ,)
+
 configure_var_fn = \
   $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
+configure_ldflags_fn = \
+  $(cross_ldflags)$(call configure_var_fn,LDFLAGS)
 
 # Allow packages to override CPPFLAGS, CFLAGS, and LDFLAGS
 CONFIGURE_ENV =								\
@@ -359,10 +382,11 @@ CONFIGURE_ENV =								\
 	 CFLAGS="$(CFLAGS) $(call configure_var_fn,CFLAGS)")		\
     $(if $(call configure_var_fn,CCASFLAGS),				\
 	 CCASFLAGS="$(CCASFLAGS) $(call configure_var_fn,CCASFLAGS)")	\
-    $(if $(call configure_var_fn,LDFLAGS),				\
-	 LDFLAGS="$(LDFLAGS) $(call configure_var_fn,LDFLAGS)")		\
+    $(if $(call configure_ldflags_fn),					\
+	 LDFLAGS="$(LDFLAGS) $(call configure_ldflags_fn)")		\
     $(if $($(PACKAGE)_configure_env),$($(PACKAGE)_configure_env))
 
+### BURT
 # only partially used now (used in a few .mk files)
 ifeq ($(is_build_tool),yes)
 prefix     = $(PACKAGE_INSTALL_DIR)
@@ -380,6 +404,7 @@ libexecdir = $($(PLATFORM)_LIBEXECDIR)
 destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
 DESTDIR  = $(call destdirMacro,$(PACKAGE))
 endif
+### BURT
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -559,13 +584,13 @@ find_source_for_package =									\
   $(call build_msg_fn,Finding source for $(PACKAGE)) ;						\
   s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;						\
   [[ -z "$${s}" ]]										\
-    && $(call build_msg_fn,Package $(PACKAGE) not found with path $(SOURCE_PATH))						\
+    && $(call build_msg_fn,Package $(PACKAGE) not found with path $(SOURCE_PATH))		\
     && exit 1;											\
   mk="$(call find_build_data_dir_for_package_fn,$(PACKAGE_SOURCE))/packages/$(PACKAGE).mk";	\
   $(call build_msg_fn,Makefile fragment found in $${mk}) ;					\
   if [ ! -d "$${s}" ] ; then									\
     d=`dirname $${mk}` ;									\
-    i=`cd $${d}/.. && ($(GIT) config remote.origin.url ||						\
+    i=`cd $${d}/.. && ($(GIT) config remote.origin.url ||					\
                     awk '/URL/ { print $$2; }' .git/remotes/origin)`;				\
     g=`dirname $${i}` ;										\
     $(call build_msg_fn,Fetching source: $(GIT) clone $${g}/$(PACKAGE_SOURCE) $$s) ;		\
@@ -703,26 +728,34 @@ ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$
 
 .PHONY: install-packages
 install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))	
-	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;		\
-	rm -rf $${d} ;						\
-	mkdir -p $${d};						\
-	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}	\
-	    $(patsubst %,%-image_install,			\
-	      basic_system					\
-	      $(ROOT_PACKAGES))	;				\
-	  : strip symbols from files ; 				\
-	  if [ $${strip_symbols:-no} = 'yes' ] ; then		\
-	      echo @@@@ Stripping symbols from files @@@@ ;	\
-	      find $${d} -type f				\
-		-exec						\
-		  $(TARGET_PREFIX)strip				\
-		    --strip-unneeded '{}' ';'			\
-		    >& /dev/null ;				\
-	  else							\
-	      echo @@@@ NOT stripping symbols @@@@ ;		\
-	  fi 
+	set -eu$(BUILD_DEBUG) ;							\
+	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;				\
+	rm -rf $${d} ;								\
+	mkdir -p $${d};								\
+	$(MAKE) -C $(MU_BUILD_ROOT_DIR) IMAGE_INSTALL_DIR=$${d}			\
+	    $(patsubst %,%-image_install,					\
+	      basic_system							\
+	      $(ROOT_PACKAGES))	|| exit 1;					\
+	$(call build_msg_fn, Relocating ELF executables to run in $${d}) ;	\
+	find $${d} -type f							\
+	    -exec elftool quiet in '{}' out '{}'				\
+		set-interpreter							\
+		    $${d}/$(arch_lib_dir)/$(DYNAMIC_LINKER)			\
+		set-rpath $${d}/$(arch_lib_dir):$${d}/lib ';' ;			\
+	: strip symbols from files ;						\
+	if [ $${strip_symbols:-no} = 'yes' ] ; then				\
+	    $(call build_msg_fn, Stripping symbols from files) ;		\
+	    find $${d} -type f							\
+		-exec								\
+		  $(TARGET_PREFIX)strip						\
+		    --strip-unneeded '{}' ';'					\
+		    >& /dev/null ;						\
+	else									\
+	    $(call build_msg_fn, NOT stripping symbols) ;			\
+	fi 
 
 # readonly root squashfs image
+# Note: $(call build_msg_fn) does not seem to work inside of fakeroot so we use echo
 .PHONY: ro-image
 $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGES))
 	@$(BUILD_ENV) ;							\
@@ -742,6 +775,12 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	      $(ROOT_PACKAGES)) ;					\
 	  : make dev directory ;					\
 	  $(linuxrc_makedev) ;						\
+	  echo @@@@ Relocating ELF executables to run in / @@@@ ;	\
+	  find $${d} -type f						\
+	      -exec elftool quiet in '{}' out '{}'			\
+		set-interpreter						\
+		    /$(arch_lib_dir)/$(DYNAMIC_LINKER)			\
+		unset-rpath ';' ;					\
 	  : strip symbols from files ;					\
 	  if [ '$${strip_symbols:-yes}' = 'yes' ] ; then		\
 	      echo @@@@ Stripping symbols from files @@@@ ;		\
@@ -756,9 +795,9 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  if [ $${sign_executables:-yes} = 'yes'			\
 	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
-	      find $${tmp_dir} -type f 					\
-		| xargs sign $($(PLATFORM)_public_key) 			\
-			     $($(PLATFORM)_private_key_passphrase) ; 	\
+	      find $${tmp_dir} -type f					\
+		| xargs sign $($(PLATFORM)_public_key)			\
+			     $($(PLATFORM)_private_key_passphrase) ;	\
 	  fi ;								\
 	  : make read-only file system ;				\
 	  mksquashfs							\
