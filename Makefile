@@ -367,7 +367,7 @@ CROSS_LDFLAGS =											\
   -Wl,--dynamic-linker=$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)/$(DYNAMIC_LINKER)	\
   -Wl,-rpath -Wl,$(lots_of_slashes_to_pad_names)$(TOOL_INSTALL_LIB_DIR)
 
-cross_ldflags = $(if $(ARCH:native=),$(CROSS_LDFLAGS) ,)
+cross_ldflags = $(if $(is_build_tool),,$(if $(ARCH:native=),$(CROSS_LDFLAGS) ,))
 
 configure_var_fn = \
   $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
