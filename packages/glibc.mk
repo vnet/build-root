@@ -2,7 +2,7 @@
 glibc_configure_depend = gcc-bootstrap-install linux-install
 
 # Point GLIBC at installed Linux headers
-glibc_configure_args = --with-headers=$(TARGET_TOOL_INSTALL_DIR)/linux/include
+glibc_configure_args = --with-headers=$(TARGET_TOOL_INSTALL_DIR)/include
 
 # Override default prefix of $(PACKAGE_INSTALL_DIR)
 glibc_configure_prefix = --prefix=/usr
@@ -18,7 +18,6 @@ glibc_make_args = libgcc_eh=-lgcc static-gnulib=-lgcc
 
 # GLIBC -j 16 does not make install properly on some machines.
 # Is this still true? Yes it is..
-
 glibc_make_parallel_fails = yes
 
 glibc_install = \
