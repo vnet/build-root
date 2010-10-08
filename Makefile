@@ -180,6 +180,16 @@ PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 # $(call VAR,DEFAULT)
 override_var_with_default_fn = $(if $($(1)),$($(1)),$(2))
 
+# $(call if_directory_exists_fn,D1,D2) returns D1 if it exists else D2
+define if_directory_exists_fn
+$(shell if test -d $(1); then echo $(1); else echo $(2); fi)
+endef
+
+# $(call if_file_exists_fn,F1,F2) returns F1 if it exists else F2
+define if_file_exists_fn
+$(shell if test -f $(1); then echo $(1); else echo $(2); fi)
+endef
+
 # Default VAR, package specified override of default PACKAGE_VAR
 package_var_fn = $(call override_var_with_default_fn,$(1)_$(2),$(1))
 
@@ -373,8 +383,33 @@ CROSS_LDFLAGS =											\
 
 cross_ldflags = $(if $(is_native)$(is_build_tool),,$(CROSS_LDFLAGS) )
 
+# $(call installed_libs_fn,PACKAGE)
+# Return install library directory for given package.
+# Some packages (e.g. openssl) don't install under lib64; instead they use lib
+define installed_lib_fn
+$(call if_directory_exists_fn,
+  $(call package_install_dir_fn,$(1))/$(arch_lib_dir),
+  $(call package_install_dir_fn,$(1))/lib)
+endef
+
+# Set -L and rpath to point to dependent libraries previously built by us.
+installed_libs_fn =					\
+  $(foreach i,$(1),					\
+    -L$(call installed_lib_fn,$(i))			\
+    -Wl,-rpath -Wl,$(call installed_lib_fn,$(i)))
+
+# As above for include files
+installed_include_fn = $(call package_install_dir_fn,$(1))/include
+
+installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
+
+# By default package CPPFLAGS (to set include path -I) and LDFLAGS (to set link path -L)
+# point at dependent install directories.
+DEFAULT_CPPFLAGS = $(call installed_includes_fn, $(PACKAGE_DEPENDENCIES))
+DEFAULT_LDFLAGS = $(call installed_libs_fn, $(PACKAGE_DEPENDENCIES))
+
 configure_var_fn = \
-  $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
+  $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),$(DEFAULT_$(1)))
 configure_ldflags_fn = \
   $(cross_ldflags)$(call configure_var_fn,LDFLAGS)
 
@@ -535,12 +570,6 @@ build_check_timestamp =									\
 # Package install
 ######################################################################
 
-installed_lib_fn = $(call package_install_dir_fn,$(1))/$(arch_lib_dir)
-installed_include_fn = $(call package_install_dir_fn,$(1))/include
-
-installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
-installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
-
 install_package =								\
     : by default, for non-tools, remove any previously installed bits ;		\
     $(if $(is_build_tool)$($(PACKAGE)_keep_instdir),				\
@@ -560,6 +589,7 @@ install_check_timestamp =					\
   inst=$(TIMESTAMP_DIR)/$(INSTALL_TIMESTAMP) ;			\
   dirs="$(PACKAGE_BUILD_DIR)" ;					\
   if [[ $(call find_newer_fn, $${inst}, $${dirs}, $?) ]]; then	\
+    $(call build_msg_fn,Installing $(PACKAGE)) ;		\
     $(install_package) ;					\
     touch $${inst} ;						\
   else								\
