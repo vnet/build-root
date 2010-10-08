@@ -86,3 +86,10 @@ gl_cv_fs_space=yes
 ac_cv_file__proc_self_fd=yes
 ac_cv_file__proc_self_exe=yes
 ac_cv_file__proc_self_maps=yes
+
+######################################################################
+# tcpdump
+######################################################################
+ac_cv_linux_vers=2
+ac_cv_func_pcap_findalldevs=no
+
