@@ -336,7 +336,7 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all find-source
+TARGETS_RESPECTING_DEPENDENCIES = image_install wipe diff push-all pull-all find-source
 
 # carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
@@ -639,6 +639,27 @@ pull-all:
 	$(call tool_make_target_fn,pull-all) ;					\
 	$(call build_msg_fn,Git pull packages for platform $(PLATFORM)) ;	\
 	make PLATFORM=$(PLATFORM) $(patsubst %,%-pull-all,$(ROOT_PACKAGES))
+
+.PHONY: %-diff
+%-diff:
+	@$(BUILD_ENV) ;					\
+	d=$(call find_source_fn,$(PACKAGE_SOURCE)) ;	\
+	$(call build_msg_fn,Git diff $(PACKAGE)) ;	\
+	cd $${d} && $(GIT) --no-pager diff 2>/dev/null
+
+# generate diffs for everything in source path
+.PHONY: diff-all
+diff-all:
+	@$(BUILD_ENV) ;						\
+	$(call build_msg_fn,Generate diffs) ;			\
+	for r in $(ABSOLUTE_SOURCE_PATH); do			\
+	  for d in $${r}/* ; do					\
+	    if [ -d $${d} ] ; then				\
+	      $(call build_msg_fn,Git diff $${d}) ;		\
+	      cd $${d} && $(GIT) --no-pager diff 2>/dev/null ;	\
+	    fi ;						\
+          done ;						\
+	done
 
 ######################################################################
 # System images
