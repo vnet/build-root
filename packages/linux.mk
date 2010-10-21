@@ -55,7 +55,9 @@ linux_build =					\
   : nothing to do
 
 # Install kernel headers for glibc build
+# Setting "unwanted" to the NULL string prevents this target from trashing the
+# glibc headers. See .../linux/scripts/Makefile.headersinst.
 linux_install = \
   i=$(TARGET_TOOL_INSTALL_DIR) ; \
   mkdir -p $$i ; \
-  $(LINUX_MAKE) INSTALL_HDR_PATH="$$i" headers_install
+  $(LINUX_MAKE) INSTALL_HDR_PATH="$$i" unwanted= headers_install
