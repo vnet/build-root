@@ -896,7 +896,7 @@ rw-image: rw-image-check-type ro-image
 	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
-images: rw-image linux-install # linuxrc-install
+images: linuxrc-install linux-install uio-pci-dma-install rw-image
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
