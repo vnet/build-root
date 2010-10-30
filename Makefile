@@ -409,6 +409,9 @@ destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
 DESTDIR  = $(call destdirMacro,$(PACKAGE))
 endif
 ### BURT
+### dbarach
+image_extra_dependencies = $($(PLATFORM)_image_extra_dependencies)
+### dbarach
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -896,7 +899,7 @@ rw-image: rw-image-check-type ro-image
 	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
-images: linuxrc-install linux-install uio-pci-dma-install rw-image
+images: linuxrc-install linux-install $(image_extra_dependencies) rw-image
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
