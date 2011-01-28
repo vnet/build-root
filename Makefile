@@ -543,6 +543,7 @@ installed_include_fn = $(call package_install_dir_fn,$(1))/include
 
 installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
 installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
+installed_rpaths_fn = $(foreach i,$(1),-Wl,-rpath -Wl,$(INSTALL_DIR)/$(i)/$(arch_lib_dir))
 
 install_package =								\
     : by default, for non-tools, remove any previously installed bits ;		\
