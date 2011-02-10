@@ -757,6 +757,7 @@ ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$
 
 .PHONY: install-packages
 install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))	
+	@$(BUILD_ENV) ;							        \
 	set -eu$(BUILD_DEBUG) ;							\
 	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;				\
 	rm -rf $${d} ;								\
