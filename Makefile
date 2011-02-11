@@ -863,10 +863,11 @@ RW_IMAGE_TYPE=jffs2
 make_rw_image_fn = \
   $(call mkfs_fn_$(RW_IMAGE_TYPE),$(1),$(2))
 
-rw_image_embed_ro_image_fn =			\
-  mkdir -p proc initrd images ro rw union ;	\
-  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;	\
-  md5sum images/$(1) > images/$(1).md5 ;	\
+rw_image_embed_ro_image_fn =					\
+  mkdir -p proc initrd images ro rw union ;			\
+  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;			\
+  md5sum images/$(1) > images/$(1).md5 ;			\
+  echo Built by $(LOGNAME) at `date` > images/$(1).stamp ;	\
   mkdir -p changes/$(1)
 
 # make sure RW_IMAGE_TYPE is a type we know how to build
