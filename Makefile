@@ -364,7 +364,7 @@ DYNAMIC_LINKER=${shell cd $(TOOL_INSTALL_LIB_DIR); echo ld*.so.*}
 
 # Pad dynamic linker & rpath so elftool will never have to change ELF section sizes.
 # Yes, this is a kludge.
-lots_of_slashes_to_pad_names = "//////////////////////////////////////////////////////////////"
+lots_of_slashes_to_pad_names = "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////"
 
 # When PLATFORM != native we *always* use our own versions of GLIBC and dynamic linker
 CROSS_LDFLAGS =											\
