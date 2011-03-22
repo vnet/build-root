@@ -341,7 +341,7 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all find-source
+TARGETS_RESPECTING_DEPENDENCIES = image_install wipe diff push-all pull-all find-source
 
 # carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
@@ -414,6 +414,9 @@ destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
 DESTDIR  = $(call destdirMacro,$(PACKAGE))
 endif
 ### BURT
+### dbarach
+image_extra_dependencies = $($(PLATFORM)_image_extra_dependencies)
+### dbarach
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -545,6 +548,7 @@ installed_include_fn = $(call package_install_dir_fn,$(1))/include
 
 installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
 installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
+installed_rpaths_fn = $(foreach i,$(1),-Wl,-rpath -Wl,$(INSTALL_DIR)/$(i)/$(arch_lib_dir))
 
 install_package =								\
     : by default, for non-tools, remove any previously installed bits ;		\
@@ -645,6 +649,27 @@ pull-all:
 	$(call build_msg_fn,Git pull packages for platform $(PLATFORM)) ;	\
 	make PLATFORM=$(PLATFORM) $(patsubst %,%-pull-all,$(ROOT_PACKAGES))
 
+.PHONY: %-diff
+%-diff:
+	@$(BUILD_ENV) ;					\
+	d=$(call find_source_fn,$(PACKAGE_SOURCE)) ;	\
+	$(call build_msg_fn,Git diff $(PACKAGE)) ;	\
+	cd $${d} && $(GIT) --no-pager diff 2>/dev/null
+
+# generate diffs for everything in source path
+.PHONY: diff-all
+diff-all:
+	@$(BUILD_ENV) ;						\
+	$(call build_msg_fn,Generate diffs) ;			\
+	for r in $(ABSOLUTE_SOURCE_PATH); do			\
+	  for d in $${r}/* ; do					\
+	    if [ -d $${d} ] ; then				\
+	      $(call build_msg_fn,Git diff $${d}) ;		\
+	      cd $${d} && $(GIT) --no-pager diff 2>/dev/null ;	\
+	    fi ;						\
+          done ;						\
+	done
+
 ######################################################################
 # System images
 ######################################################################
@@ -737,6 +762,7 @@ ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$
 
 .PHONY: install-packages
 install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))	
+	@$(BUILD_ENV) ;							        \
 	set -eu$(BUILD_DEBUG) ;							\
 	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;				\
 	rm -rf $${d} ;								\
@@ -842,10 +868,11 @@ RW_IMAGE_TYPE=jffs2
 make_rw_image_fn = \
   $(call mkfs_fn_$(RW_IMAGE_TYPE),$(1),$(2))
 
-rw_image_embed_ro_image_fn =			\
-  mkdir -p proc initrd images ro rw union ;	\
-  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;	\
-  md5sum images/$(1) > images/$(1).md5 ;	\
+rw_image_embed_ro_image_fn =					\
+  mkdir -p proc initrd images ro rw union ;			\
+  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;			\
+  md5sum images/$(1) > images/$(1).md5 ;			\
+  echo Built by $(LOGNAME) at `date` > images/$(1).stamp ;	\
   mkdir -p changes/$(1)
 
 # make sure RW_IMAGE_TYPE is a type we know how to build
@@ -880,7 +907,7 @@ rw-image: rw-image-check-type ro-image
 	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
-images: rw-image linux-install # linuxrc-install
+images: linuxrc-install linux-install $(image_extra_dependencies) rw-image
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\

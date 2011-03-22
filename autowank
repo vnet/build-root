@@ -39,7 +39,7 @@ if [ $sign = "-" ] ; then
     fi
 else
     sign="-"
-    let tz_hour=$tz_hour-1
+    let tz_hour=$tz_hour-1 || true
     if [[ $tz_hour -lt "0" ]] ; then
         tz_hour=23
     fi
