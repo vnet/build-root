@@ -149,6 +149,10 @@ debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 prof_TAG_CFLAGS = -g -pg -O2
 prof_TAG_LDFLAGS = -g -pg -O2
 
+# TAG=o1
+o1_TAG_CFLAGS = -g -O1
+o1_TAG_LDFLAGS = -g -O1
+
 # TAG=o2
 o2_TAG_CFLAGS = -g -O2
 o2_TAG_LDFLAGS = -g -O2
@@ -306,6 +310,7 @@ find_filter += -and -not -path '*/.CVS*'
 find_filter += -and -not -path '*/manual/*'
 find_filter += -and -not -path '*/autom4te.cache/*'
 find_filter += -and -not -path '*/doc/all-cfg.texi'
+find_filter += -and -not -path '*/.mu_build_*'
 
 find_newer_fn =						\
   (! -f $(1)						\
