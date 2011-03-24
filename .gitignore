@@ -5,6 +5,7 @@ install-*/*
 tools/*
 images-*/*
 packages-*/*
+ios-headers-*/*
 *-pacman
 *-pacman.tar
 *.log
