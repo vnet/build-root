@@ -110,6 +110,15 @@ BASIC_ARCH = \
       (*) echo '$(ARCH)' ;; \
      esac }
 
+# x86_64 can be either 32/64.  set BIACH=32 to get 32 bit libraries.
+BIARCH = 64
+
+x86_64_libdir = $(BIARCH)
+native_libdir = $($(NATIVE_ARCH)_libdir)
+
+# lib or lib64 depending
+arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
+
 # OS to configure for.  configure --host will be set to $(ARCH)-$(OS)
 OS = mu-linux
 
@@ -148,6 +157,14 @@ debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 # TAG=prof for profiling
 prof_TAG_CFLAGS = -g -pg -O2
 prof_TAG_LDFLAGS = -g -pg -O2
+
+# TAG=o0
+o0_TAG_CFLAGS = -g -O0
+o1_TAG_LDFLAGS = -g -O0
+
+# TAG=o1
+o1_TAG_CFLAGS = -g -O1
+o1_TAG_LDFLAGS = -g -O1
 
 # TAG=o2
 o2_TAG_CFLAGS = -g -O2
@@ -316,12 +333,19 @@ find_filter += -and -not -path '*/.CVS*'
 find_filter += -and -not -path '*/manual/*'
 find_filter += -and -not -path '*/autom4te.cache/*'
 find_filter += -and -not -path '*/doc/all-cfg.texi'
+find_filter += -and -not -path '*/.mu_build_*'
 
-find_newer_fn =						\
-  (! -f $(1)						\
-    || -n $(call find_newer_files_fn,$(1),$(3))		\
-    || -n "`find -H $(2) $(find_filter)			\
-            -and -type f -newer $(1) -print -quit`")
+find_newer_filtered_fn =			\
+  (! -f $(1)					\
+    || -n $(call find_newer_files_fn,$(1),$(3))	\
+    || -n "`find -H $(2)			\
+	      -type f				\
+              -and -newer $(1)			\
+	      -and \( $(4) \)			\
+              -print -quit >& /dev/null`")
+
+find_newer_fn =							\
+  $(call find_newer_filtered_fn,$(1),$(2),$(3),$(find_filter))
 
 ######################################################################
 # Package dependencies
@@ -346,7 +370,7 @@ $(foreach p,$(ALL_PACKAGES), \
     $(call add_package_dependency_fn,$(p),build) \
     $(call add_package_dependency_fn,$(p),install))
 
-TARGETS_RESPECTING_DEPENDENCIES = image_install wipe push-all pull-all find-source
+TARGETS_RESPECTING_DEPENDENCIES = image_install wipe diff push-all pull-all find-source
 
 # carry over packages dependencies to image install, wipe, pull-all, push-all
 $(foreach p,$(ALL_PACKAGES),							\
@@ -444,6 +468,9 @@ destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
 DESTDIR  = $(call destdirMacro,$(PACKAGE))
 endif
 ### BURT
+### dbarach
+image_extra_dependencies = $($(PLATFORM)_image_extra_dependencies)
+### dbarach
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -537,7 +564,7 @@ PACKAGE_MAKE =					\
     $(MAKE_PARALLEL_FLAGS)
 
 build_package =							\
-  $(call build_msg_fn,Compiling $* in $(PACKAGE_BUILD_DIR)) ;	\
+  $(call build_msg_fn,Building $* in $(PACKAGE_BUILD_DIR)) ;	\
   mkdir -p $(PACKAGE_BUILD_DIR) ;				\
   cd $(PACKAGE_BUILD_DIR) ;					\
   $(if $($(PACKAGE)_build),					\
@@ -549,13 +576,14 @@ build_check_timestamp =									\
   comp="$(TIMESTAMP_DIR)/$(BUILD_TIMESTAMP)" ;						\
   conf="$(TIMESTAMP_DIR)/$(CONFIGURE_TIMESTAMP)" ;					\
   dirs="$(call find_source_fn,$(PACKAGE_SOURCE))					\
-       $(if $(is_build_tool),,$(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES)))" ;	\
+	$($(PACKAGE)_build_timestamp_depends)						\
+	$(if $(is_build_tool),,$(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES)))" ;	\
   if [[ $${conf} -nt $${comp}								\
         || $(call find_newer_fn, $${comp}, $${dirs}, $?) ]]; then			\
     $(build_package) ;									\
     touch $${comp} ;									\
   else											\
-    $(call build_msg_fn,Compiling $(PACKAGE): nothing to do) ;				\
+    $(call build_msg_fn,Building $(PACKAGE): nothing to do) ;				\
   fi
 
 .PHONY: %-build
@@ -670,6 +698,27 @@ pull-all:
 	$(call build_msg_fn,Git pull packages for platform $(PLATFORM)) ;	\
 	make PLATFORM=$(PLATFORM) $(patsubst %,%-pull-all,$(ROOT_PACKAGES))
 
+.PHONY: %-diff
+%-diff:
+	@$(BUILD_ENV) ;					\
+	d=$(call find_source_fn,$(PACKAGE_SOURCE)) ;	\
+	$(call build_msg_fn,Git diff $(PACKAGE)) ;	\
+	cd $${d} && $(GIT) --no-pager diff 2>/dev/null
+
+# generate diffs for everything in source path
+.PHONY: diff-all
+diff-all:
+	@$(BUILD_ENV) ;						\
+	$(call build_msg_fn,Generate diffs) ;			\
+	for r in $(ABSOLUTE_SOURCE_PATH); do			\
+	  for d in $${r}/* ; do					\
+	    if [ -d $${d} ] ; then				\
+	      $(call build_msg_fn,Git diff $${d}) ;		\
+	      cd $${d} && $(GIT) --no-pager diff 2>/dev/null ;	\
+	    fi ;						\
+          done ;						\
+	done
+
 ######################################################################
 # System images
 ######################################################################
@@ -762,6 +811,7 @@ ROOT_PACKAGES = $(if $($(PLATFORM)_root_packages),$($(PLATFORM)_root_packages),$
 
 .PHONY: install-packages
 install-packages: $(patsubst %,%-find-source,$(ROOT_PACKAGES))	
+	@$(BUILD_ENV) ;							        \
 	set -eu$(BUILD_DEBUG) ;							\
 	d=$(MU_BUILD_ROOT_DIR)/packages-$(PLATFORM) ;				\
 	rm -rf $${d} ;								\
@@ -867,10 +917,11 @@ RW_IMAGE_TYPE=jffs2
 make_rw_image_fn = \
   $(call mkfs_fn_$(RW_IMAGE_TYPE),$(1),$(2))
 
-rw_image_embed_ro_image_fn =			\
-  mkdir -p proc initrd images ro rw union ;	\
-  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;	\
-  md5sum images/$(1) > images/$(1).md5 ;	\
+rw_image_embed_ro_image_fn =					\
+  mkdir -p proc initrd images ro rw union ;			\
+  cp $(PLATFORM_IMAGE_DIR)/$(1) images/$(1) ;			\
+  md5sum images/$(1) > images/$(1).md5 ;			\
+  echo Built by $(LOGNAME) at `date` > images/$(1).stamp ;	\
   mkdir -p changes/$(1)
 
 # make sure RW_IMAGE_TYPE is a type we know how to build
@@ -905,7 +956,7 @@ rw-image: rw-image-check-type ro-image
 	: cleanup tmp directory ;				\
 	rm -rf $${tmp_dir}
 
-images: rw-image linux-install # linuxrc-install
+images: linuxrc-install linux-install $(image_extra_dependencies) rw-image
 	@$(BUILD_ENV) ;						\
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
