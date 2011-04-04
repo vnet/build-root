@@ -110,6 +110,15 @@ BASIC_ARCH = \
       (*) echo '$(ARCH)' ;; \
      esac }
 
+# x86_64 can be either 32/64.  set BIACH=32 to get 32 bit libraries.
+BIARCH = 64
+
+x86_64_libdir = $(BIARCH)
+native_libdir = $($(NATIVE_ARCH)_libdir)
+
+# lib or lib64 depending
+arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
+
 # OS to configure for.  configure --host will be set to $(ARCH)-$(OS)
 OS = mu-linux
 
@@ -148,6 +157,10 @@ debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 # TAG=prof for profiling
 prof_TAG_CFLAGS = -g -pg -O2
 prof_TAG_LDFLAGS = -g -pg -O2
+
+# TAG=o1
+o1_TAG_CFLAGS = -g -O1
+o1_TAG_LDFLAGS = -g -O1
 
 # TAG=o2
 o2_TAG_CFLAGS = -g -O2
@@ -306,12 +319,19 @@ find_filter += -and -not -path '*/.CVS*'
 find_filter += -and -not -path '*/manual/*'
 find_filter += -and -not -path '*/autom4te.cache/*'
 find_filter += -and -not -path '*/doc/all-cfg.texi'
+find_filter += -and -not -path '*/.mu_build_*'
 
-find_newer_fn =						\
-  (! -f $(1)						\
-    || -n $(call find_newer_files_fn,$(1),$(3))		\
-    || -n "`find -H $(2) $(find_filter)			\
-            -and -type f -newer $(1) -print -quit`")
+find_newer_filtered_fn =			\
+  (! -f $(1)					\
+    || -n $(call find_newer_files_fn,$(1),$(3))	\
+    || -n "`find -H $(2)			\
+	      -type f				\
+              -and -newer $(1)			\
+	      -and \( $(4) \)			\
+              -print -quit`")
+
+find_newer_fn =							\
+  $(call find_newer_filtered_fn,$(1),$(2),$(3),$(find_filter))
 
 ######################################################################
 # Package dependencies
@@ -348,15 +368,6 @@ $(foreach p,$(ALL_PACKAGES),							\
 ######################################################################
 # Package configure
 ######################################################################
-
-# x86_64 can be either 32/64.  set BIACH=32 to get 32 bit libraries.
-BIARCH = 64
-
-x86_64_libdir = $(BIARCH)
-native_libdir = $($(NATIVE_ARCH)_libdir)
-
-# lib or lib64 depending
-arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 
 # find dynamic linker as absolute path
 TOOL_INSTALL_LIB_DIR=$(TOOL_INSTALL_DIR)/$(TARGET)/$(arch_lib_dir)
@@ -505,7 +516,7 @@ PACKAGE_MAKE =					\
     $(MAKE_PARALLEL_FLAGS)
 
 build_package =							\
-  $(call build_msg_fn,Compiling $* in $(PACKAGE_BUILD_DIR)) ;	\
+  $(call build_msg_fn,Building $* in $(PACKAGE_BUILD_DIR)) ;	\
   mkdir -p $(PACKAGE_BUILD_DIR) ;				\
   cd $(PACKAGE_BUILD_DIR) ;					\
   $(if $($(PACKAGE)_build),					\
@@ -517,13 +528,14 @@ build_check_timestamp =									\
   comp="$(TIMESTAMP_DIR)/$(BUILD_TIMESTAMP)" ;						\
   conf="$(TIMESTAMP_DIR)/$(CONFIGURE_TIMESTAMP)" ;					\
   dirs="$(call find_source_fn,$(PACKAGE_SOURCE))					\
-       $(if $(is_build_tool),,$(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES)))" ;	\
+	$($(PACKAGE)_build_timestamp_depends)						\
+	$(if $(is_build_tool),,$(addprefix $(INSTALL_DIR)/,$(PACKAGE_DEPENDENCIES)))" ;	\
   if [[ $${conf} -nt $${comp}								\
         || $(call find_newer_fn, $${comp}, $${dirs}, $?) ]]; then			\
     $(build_package) ;									\
     touch $${comp} ;									\
   else											\
-    $(call build_msg_fn,Compiling $(PACKAGE): nothing to do) ;				\
+    $(call build_msg_fn,Building $(PACKAGE): nothing to do) ;				\
   fi
 
 .PHONY: %-build
