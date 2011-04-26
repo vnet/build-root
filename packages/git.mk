@@ -1,3 +1,5 @@
+git_configure_depend = openssl-install
+
 git_configure = \
   rm -rf $(PACKAGE_BUILD_DIR) ; \
   mkdir -p $(PACKAGE_BUILD_DIR) ; \
@@ -6,3 +8,5 @@ git_configure = \
   cp --no-dereference --recursive --symbolic-link \
     $(call find_source_fn,git)/* . ; \
   ./configure --prefix="$(PACKAGE_INSTALL_DIR)"
+
+git_make_args += LDFLAGS='$(call installed_libs_fn, openssl)'

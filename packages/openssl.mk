@@ -31,7 +31,16 @@ openssl_make_args += LD='$(TARGET_PREFIX)ld' \
 	             CC='$(TARGET_PREFIX)gcc' \
                      RANLIB='$(TARGET_PREFIX)ranlib'
 
-openssl_make_args += LDFLAGS=$(call installed_libs_fn,zlib)
+openssl_make_args += LDFLAGS='$(call installed_libs_fn,zlib)'
 
 # gives make errors
 openssl_make_parallel_fails = yes
+
+# FIXME - this is a hack
+openssl_post_install =							    \
+  if [ "$(arch_lib_dir)" != "lib" ] ; then				    \
+     mkdir -p $(PACKAGE_INSTALL_DIR)/$(arch_lib_dir) ;			    \
+     cd $(PACKAGE_INSTALL_DIR)/lib		     ;			    \
+     tar cf - . | ( cd $(PACKAGE_INSTALL_DIR)/$(arch_lib_dir); tar xf - ) ; \
+  fi 
+# END FIXME
