@@ -52,22 +52,58 @@ FIND_SOURCE_PATH =						\
 # First search given source path, then default to build-root
 FULL_SOURCE_PATH = $(SOURCE_PATH_BUILD_DATA_DIRS) $(MU_BUILD_ROOT_DIR)
 
+# Misc functions
+is_in_fn = $(strip $(filter $(1),$(2)))
+last_fn = $(lastword $1)
+chop_fn = $(wordlist 2,$(words $1),x $1)
+uniq_fn = $(strip $(if $1,$(call uniq_fn,$(call chop_fn,$1)) \
+            $(if $(filter $(call last_fn,$1),$(call chop_fn,$1)),,$(call last_fn,$1))))
+ifdef3_fn = $(if $(patsubst undefined,,$(origin $(1))),$(3),$(2))
+ifdef_fn = $(call ifdef3_fn,$(1),$(2),$($(1)))
+
+_mu_debug = $(warning "$(1) = $($(1))")
+
+$(foreach d,$(FIND_SOURCE_PATH),					\
+  $(eval _mu_package_mk_in_$(d) = $(shell find $(d)/packages/*.mk 2> /dev/null))	\
+  $(eval _mu_srcdirs_in_$(d) =						\
+    $(shell find $(d)/..						\
+      -maxdepth 1							\
+      -type d								\
+      -and -not -name ".."						\
+      -and -not -name $(MU_BUILD_ROOT_NAME)				\
+      -and -not -name $(MU_BUILD_DATA_DIR_NAME)))			\
+  $(eval _mu_non_package_files_in_$(d) =				\
+    $(shell find $(d)/packages						\
+      -type f								\
+      -and -not -name '*.mk'						\
+      -and -not -name '*~' 2> /dev/null))				\
+  $(foreach p,$(patsubst %.mk,%,$(notdir $(_mu_package_mk_in_$(d)))),	\
+    $(eval _mu_package_dir_$(p) = $(d))					\
+    $(eval _mu_package_mk_$(p) = $(d)/packages/$(p).mk)			\
+  )									\
+  $(foreach p,$(notdir $(_mu_srcdirs_in_$(d))),				\
+    $(eval _mu_package_srcdir_$(p) = $(shell cd $(d)/../$(p) && pwd))	\
+  )									\
+)
+
 # Find root directory for package based on presence of package .mk
 # makefile fragment on source path.
-find_build_data_dir_for_package_fn = $(shell			\
+_find_build_data_dir_for_package_fn = $(shell			\
   set -eu$(BUILD_DEBUG) ;					\
   for d in $(FIND_SOURCE_PATH) ; do				\
     f="$${d}/packages/$(1).mk" ;				\
     [[ -f $${f} ]] && echo `cd $${d} && pwd` && exit 0 ;	\
   done ;							\
   echo "")
+find_build_data_dir_for_package_fn = $(call ifdef_fn,_mu_package_dir_$(1),)
 
 # dir/PACKAGE
-find_source_fn = $(shell				\
+_find_source_fn = $(shell				\
   set -eu$(BUILD_DEBUG) ;				\
   d="$(call find_build_data_dir_for_package_fn,$(1))" ;	\
   [[ -n "$${d}" ]] && d="$${d}/../$(1)" ;		\
   echo "$${d}")
+find_source_fn = $(call ifdef3_fn,_mu_package_dir_$(1),,$(_mu_package_dir_$(1))/../$(1))
 
 # Find given FILE in source path as build-data/packages/FILE
 find_package_file_fn = $(shell				\
@@ -122,8 +158,6 @@ arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 # OS to configure for.  configure --host will be set to $(ARCH)-$(OS)
 OS = mu-linux
 
-ifdef_fn = $(if $(patsubst undefined,,$(origin $(1))),$($(1)),$(2))
-
 spu_target = spu
 native_target =
 
@@ -157,6 +191,10 @@ debug_TAG_LDFLAGS = -g -O0 -DDEBUG
 # TAG=prof for profiling
 prof_TAG_CFLAGS = -g -pg -O2
 prof_TAG_LDFLAGS = -g -pg -O2
+
+# TAG=o0
+o0_TAG_CFLAGS = -g -O0
+o1_TAG_LDFLAGS = -g -O0
 
 # TAG=o1
 o1_TAG_CFLAGS = -g -O1
@@ -192,6 +230,16 @@ PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
 # $(call VAR,DEFAULT)
 override_var_with_default_fn = $(if $($(1)),$($(1)),$(2))
+
+# $(call if_directory_exists_fn,D1,D2) returns D1 if it exists else D2
+define if_directory_exists_fn
+$(shell if test -d $(1); then echo $(1); else echo $(2); fi)
+endef
+
+# $(call if_file_exists_fn,F1,F2) returns F1 if it exists else F2
+define if_file_exists_fn
+$(shell if test -f $(1); then echo $(1); else echo $(2); fi)
+endef
 
 # Default VAR, package specified override of default PACKAGE_VAR
 package_var_fn = $(call override_var_with_default_fn,$(1)_$(2),$(1))
@@ -248,9 +296,18 @@ pkgPhaseDependMacro = $(eval $(1)_configure_depend := $($(1)_depend:%=%-install)
 
 ### BURT
 
-$(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)), \
-  $(eval -include $(d)/*.mk) \
-  $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk))))
+# Pick up built-root/pre-package-include.mk for all source directories
+$(foreach d,$(SOURCE_PATH_BUILD_ROOT_DIRS),	\
+  $(eval -include $(d)/pre-package-include.mk))
+
+$(foreach d,$(addsuffix /packages,$(FIND_SOURCE_PATH)),			\
+  $(eval -include $(d)/*.mk)						\
+  $(eval ALL_PACKAGES += $(patsubst $(d)/%.mk,%,$(wildcard $(d)/*.mk)))	\
+)
+
+# Pick up built-root/post-package-include.mk for all source directories
+$(foreach d,$(SOURCE_PATH_BUILD_ROOT_DIRS),	\
+  $(eval -include $(d)/post-package-include.mk))
 
 # Linux specific native build tools
 NATIVE_TOOLS_LINUX =				\
@@ -365,9 +422,35 @@ $(foreach p,$(ALL_PACKAGES),							\
       $(eval $(p)-$(s):								\
 	     $(addsuffix -$(s), $(call package_dependencies_fn,$(p)))))))
 
+# recursively resolve dependencies
+resolve_dependencies2_fn = $(strip					\
+  $(eval __added = $(filter-out $(4),					\
+    $(call uniq_fn,							\
+      $(foreach l,$(3),							\
+       $(call ifdef3_fn,$(l)$(1),,$(call $(2),$($(l)$(1))))		\
+      ))))								\
+  $(eval __known = $(call uniq_fn,$(4) $(3) $(__added)))		\
+  $(if $(__added),							\
+    $(call resolve_dependencies2_fn,$(1),$(2),$(__added),$(__known)),	\
+    $(__known))								\
+)
+
+resolve_dependencies_null_fn = $(1)
+
+resolve_dependencies_fn = $(call resolve_dependencies2_fn,$(1),resolve_dependencies_null_fn,$(2))
+
 ######################################################################
 # Package configure
 ######################################################################
+
+# x86_64 can be either 32/64.  set BIACH=32 to get 32 bit libraries.
+BIARCH = 64
+
+x86_64_libdir = $(BIARCH)
+native_libdir = $($(NATIVE_ARCH)_libdir)
+
+# lib or lib64 depending
+arch_lib_dir = lib$($(BASIC_ARCH)_libdir)
 
 # find dynamic linker as absolute path
 TOOL_INSTALL_LIB_DIR=$(TOOL_INSTALL_DIR)/$(TARGET)/$(arch_lib_dir)
@@ -384,8 +467,33 @@ CROSS_LDFLAGS =											\
 
 cross_ldflags = $(if $(is_native)$(is_build_tool),,$(CROSS_LDFLAGS) )
 
+# $(call installed_libs_fn,PACKAGE)
+# Return install library directory for given package.
+# Some packages (e.g. openssl) don't install under lib64; instead they use lib
+define installed_lib_fn
+$(call if_directory_exists_fn,
+  $(call package_install_dir_fn,$(1))/$(arch_lib_dir),
+  $(call package_install_dir_fn,$(1))/lib)
+endef
+
+# Set -L and rpath to point to dependent libraries previously built by us.
+installed_libs_fn =					\
+  $(foreach i,$(1),					\
+    -L$(call installed_lib_fn,$(i))			\
+    -Wl,-rpath -Wl,$(call installed_lib_fn,$(i)))
+
+# As above for include files
+installed_include_fn = $(call package_install_dir_fn,$(1))/include
+
+installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
+
+# By default package CPPFLAGS (to set include path -I) and LDFLAGS (to set link path -L)
+# point at dependent install directories.
+DEFAULT_CPPFLAGS = $(call installed_includes_fn, $(PACKAGE_DEPENDENCIES))
+DEFAULT_LDFLAGS = $(call installed_libs_fn, $(PACKAGE_DEPENDENCIES))
+
 configure_var_fn = \
-  $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),)
+  $(call tag_var_with_added_space_fn,$(1))$(call override_var_with_default_fn,$(PACKAGE)_$(1),$(DEFAULT_$(1)))
 configure_ldflags_fn = \
   $(cross_ldflags)$(call configure_var_fn,LDFLAGS)
 
@@ -500,11 +608,12 @@ configure_check_timestamp =						\
 linux_n_cpus = `grep '^processor' /proc/cpuinfo | wc -l`
 
 MAKE_PARALLEL_JOBS =				\
-  -j $(shell if [ -f /proc/cpuinfo ] ; then	\
-		expr 4 '*' $(linux_n_cpus);	\
-	     else				\
-		echo 1 ;			\
-	     fi)
+  -j $(shell					\
+    if [ -f /proc/cpuinfo ] ; then		\
+      expr 4 '*' $(linux_n_cpus) ;		\
+    else					\
+      echo 1 ;					\
+    fi)
 
 MAKE_PARALLEL_FLAGS = $(if $($(PACKAGE)_make_parallel_fails),,$(MAKE_PARALLEL_JOBS))
 
@@ -550,13 +659,6 @@ build_check_timestamp =									\
 # Package install
 ######################################################################
 
-installed_lib_fn = $(call package_install_dir_fn,$(1))/$(arch_lib_dir)
-installed_include_fn = $(call package_install_dir_fn,$(1))/include
-
-installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
-installed_libs_fn = $(foreach i,$(1),-L$(call installed_lib_fn,$(i)))
-installed_rpaths_fn = $(foreach i,$(1),-Wl,-rpath -Wl,$(INSTALL_DIR)/$(i)/$(arch_lib_dir))
-
 install_package =								\
     : by default, for non-tools, remove any previously installed bits ;		\
     $(if $(is_build_tool)$($(PACKAGE)_keep_instdir),				\
@@ -576,6 +678,7 @@ install_check_timestamp =					\
   inst=$(TIMESTAMP_DIR)/$(INSTALL_TIMESTAMP) ;			\
   dirs="$(PACKAGE_BUILD_DIR)" ;					\
   if [[ $(call find_newer_fn, $${inst}, $${dirs}, $?) ]]; then	\
+    $(call build_msg_fn,Installing $(PACKAGE)) ;		\
     $(install_package) ;					\
     touch $${inst} ;						\
   else								\
@@ -687,9 +790,9 @@ IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/image-$(PLATFORM)
 find_shared_libs_fn =				\
   find $(1)					\
     -maxdepth 1					\
-       -regex '.*/lib[a-z_]+\+?\+?.so'		\
-    -o -regex '.*/lib[a-z_]+-[0-9.]+\+?\+?.so'	\
-    -o -regex '.*/lib[a-z_]+\+?\+?.so.[0-9.]+'
+       -regex '.*/lib[a-z0-9_]+\+?\+?.so'		\
+    -o -regex '.*/lib[a-z0-9_]+-[0-9.]+\+?\+?.so'	\
+    -o -regex '.*/lib[a-z0-9_]+\+?\+?.so.[0-9.]+'
 
 # By default pick up files from binary directories and /etc.
 # Also include shared libraries.
