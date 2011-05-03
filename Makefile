@@ -676,7 +676,8 @@ install_package =								\
 install_check_timestamp =					\
   @$(BUILD_ENV) ;						\
   inst=$(TIMESTAMP_DIR)/$(INSTALL_TIMESTAMP) ;			\
-  dirs="$(PACKAGE_BUILD_DIR)" ;					\
+  dirs="$(PACKAGE_BUILD_DIR)					\
+	$($(PACKAGE)_install_dependencies)" ;			\
   if [[ $(call find_newer_fn, $${inst}, $${dirs}, $?) ]]; then	\
     $(call build_msg_fn,Installing $(PACKAGE)) ;		\
     $(install_package) ;					\
