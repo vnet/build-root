@@ -56,6 +56,12 @@ qnative_LIBEXECDIR = $(prefix)/usr/libexec
 qnative_DATAROOTDIR = $(prefix)/usr/share
 qnative_DESTDIR_BASE =
 
+vmware_PREFIX_BASE = $(DFLT_INSTALL_DIR)
+vmware_LIBDIR = $(prefix)/lib64
+vmware_LIBEXECDIR = $(prefix)/usr/libexec
+vmware_DATAROOTDIR = $(prefix)/usr/share
+vmware_DESTDIR_BASE =
+
 qasmp_PREFIX_BASE = $(DFLT_INSTALL_DIR)
 qasmp_LIBDIR = $(prefix)/lib
 qasmp_LIBEXECDIR = $(prefix)/usr/libexec
