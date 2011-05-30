@@ -317,6 +317,7 @@ NATIVE_TOOLS_LINUX =				\
   jffs2						\
   mkimage					\
   zlib						\
+  xz						\
   squashfs
 
 IS_LINUX = $(if $(findstring no,$($(PLATFORM)_uses_linux)),no,yes)
@@ -333,7 +334,7 @@ NATIVE_TOOLS = findutils make spp
 NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex tar
 
 # needed to compile gcc
-NATIVE_TOOLS += mpfr gmp
+NATIVE_TOOLS += mpfr gmp mpc
 
 # Tool to sign binaries
 NATIVE_TOOLS += sign

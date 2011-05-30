@@ -26,13 +26,17 @@ gcc-bootstrap_configure_args += --enable-decimal-float=no
 
 gcc-bootstrap_configure_args += --enable-languages=c
 
-# Newer versions of GCC depend on MPFR/GMP libraries
+# Newer versions of GCC depend on MPFR/GMP libraries which must
+# be installed via native tools install
+gcc-bootstrap_configure_args += \
+  --with-gmp-include=$(call installed_include_fn,gmp) \
+  --with-gmp-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 gcc-bootstrap_configure_args += \
   --with-mpfr-include=$(call installed_include_fn,mpfr) \
   --with-mpfr-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 gcc-bootstrap_configure_args += \
-  --with-gmp-include=$(call installed_include_fn,gmp) \
-  --with-gmp-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
+  --with-mpc-include=$(call installed_include_fn,mpc) \
+  --with-mpc-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 
 # Could put $(ARCH) dependent flags here
 # For example, if $(ARCH)=foo
@@ -51,16 +55,12 @@ gcc-bootstrap_configure_args += $(gcc-bootstrap_configure_args_$(PLATFORM))
 # to pick up the linux's limits.h
 gcc-bootstrap_make_args += LIMITS_H_TEST=true
 
-gcc-bootstrap_make_args += \
-  LIBGCC2_INCLUDES="-idirafter $(PACKAGE_BUILD_DIR)/limits_h_kludge"
+gcc-bootstrap_build =				\
+  $(MAKE)					\
+    -C $(PACKAGE_BUILD_DIR)			\
+    $(MAKE_PARALLEL_FLAGS)			\
+    all-host all-target-libgcc
 
-gcc-bootstrap_build = \
-  mkdir -p $(PACKAGE_BUILD_DIR)/limits_h_kludge ; \
-  touch $(PACKAGE_BUILD_DIR)/limits_h_kludge/limits.h ; \
-  $(PACKAGE_MAKE) ; \
-  rm -rf $(PACKAGE_BUILD_DIR)/limits_h_kludge
+gcc-bootstrap_install =	\
+  $(PACKAGE_MAKE) installdirs install-host install-target-libgcc
 
- # Depends on GLIBC
- gcc-bootstrap_configure_args += --enable-decimal-float=no
- 
- gcc-bootstrap_configure_args += --enable-languages=c
