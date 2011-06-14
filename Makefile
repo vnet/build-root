@@ -853,9 +853,10 @@ image_install_fn =								\
 %-image_install: %-install
 	$(call image_install_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
-basic_system_image_include =				\
-  echo bin/ldd ;					\
-  echo $(arch_lib_dir)/ld*.so* ;			\
+basic_system_image_include =					\
+  $(call ifdef_fn,$(PLATFORM)_basic_system_image_include) ;	\
+  echo bin/ldd ;						\
+  echo $(arch_lib_dir)/ld*.so* ;				\
   $(call find_shared_libs_fn, $(arch_lib_dir))
 
 basic_system_image_install =				\
