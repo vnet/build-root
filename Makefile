@@ -342,8 +342,8 @@ NATIVE_TOOLS += sign
 # ccache
 NATIVE_TOOLS += ccache
 
-# rpcc
-NATIVE_TOOLS += rpcc
+# rpcc and tame
+NATIVE_TOOLS += rpcc tame
 
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
@@ -459,7 +459,7 @@ DYNAMIC_LINKER=${shell cd $(TOOL_INSTALL_LIB_DIR); echo ld*.so.*}
 
 # Pad dynamic linker & rpath so elftool will never have to change ELF section sizes.
 # Yes, this is a kludge.
-lots_of_slashes_to_pad_names = "//////////////////////////////////////////////////////////////"
+lots_of_slashes_to_pad_names = "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////"
 
 # When PLATFORM != native we *always* use our own versions of GLIBC and dynamic linker
 CROSS_LDFLAGS =											\
@@ -677,7 +677,8 @@ install_package =								\
 install_check_timestamp =					\
   @$(BUILD_ENV) ;						\
   inst=$(TIMESTAMP_DIR)/$(INSTALL_TIMESTAMP) ;			\
-  dirs="$(PACKAGE_BUILD_DIR)" ;					\
+  dirs="$(PACKAGE_BUILD_DIR)					\
+	$($(PACKAGE)_install_dependencies)" ;			\
   if [[ $(call find_newer_fn, $${inst}, $${dirs}, $?) ]]; then	\
     $(call build_msg_fn,Installing $(PACKAGE)) ;		\
     $(install_package) ;					\
@@ -853,10 +854,11 @@ image_install_fn =								\
 %-image_install: %-install
 	$(call image_install_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
-basic_system_image_include =				\
-  echo bin/ldd ;					\
-  echo $(arch_lib_dir)/ld*.so* ;			\
-  $(call find_shared_libs_fn, $(arch_lib_dir))
+basic_system_image_include =					\
+  $(call ifdef_fn,$(PLATFORM)_basic_system_image_include, 	\
+  echo bin/ldd ;						\
+  echo $(arch_lib_dir)/ld*.so* ;				\
+  $(call find_shared_libs_fn, $(arch_lib_dir)))
 
 basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\
