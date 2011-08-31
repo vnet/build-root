@@ -1,7 +1,7 @@
 gcc-bootstrap_source = gcc
 
 # GCC install depends on ranlib from binutils
-gcc-bootstrap_configure_depend = binutils-install gmp-install
+gcc-bootstrap_configure_depend = binutils-install
 
 gcc-bootstrap_configure_host_and_target = --target=$(TARGET)
 
