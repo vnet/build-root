@@ -185,8 +185,8 @@ TAG_PREFIX = $(if $(TAG),$(TAG)-)
 tag_var_with_added_space_fn = $(if $($(TAG)_TAG_$(1)),$($(TAG)_TAG_$(1)) )
 
 # TAG=debug for debugging
-debug_TAG_CFLAGS = -g -O0 -DDEBUG
-debug_TAG_LDFLAGS = -g -O0 -DDEBUG
+debug_TAG_CFLAGS = -g -O0 -DCLIB_DEBUG
+debug_TAG_LDFLAGS = -g -O0 -DCLIB_DEBUG
 
 # TAG=prof for profiling
 prof_TAG_CFLAGS = -g -pg -O2
