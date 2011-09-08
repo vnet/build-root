@@ -185,8 +185,8 @@ TAG_PREFIX = $(if $(TAG),$(TAG)-)
 tag_var_with_added_space_fn = $(if $($(TAG)_TAG_$(1)),$($(TAG)_TAG_$(1)) )
 
 # TAG=debug for debugging
-debug_TAG_CFLAGS = -g -O0 -DDEBUG
-debug_TAG_LDFLAGS = -g -O0 -DDEBUG
+debug_TAG_CFLAGS = -g -O0 -DCLIB_DEBUG
+debug_TAG_LDFLAGS = -g -O0 -DCLIB_DEBUG
 
 # TAG=prof for profiling
 prof_TAG_CFLAGS = -g -pg -O2
@@ -317,6 +317,7 @@ NATIVE_TOOLS_LINUX =				\
   jffs2						\
   mkimage					\
   zlib						\
+  xz						\
   squashfs
 
 IS_LINUX = $(if $(findstring no,$($(PLATFORM)_uses_linux)),no,yes)
@@ -333,7 +334,7 @@ NATIVE_TOOLS = findutils make spp
 NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex tar
 
 # needed to compile gcc
-NATIVE_TOOLS += mpfr gmp
+NATIVE_TOOLS += mpfr gmp mpc
 
 # Tool to sign binaries
 NATIVE_TOOLS += sign
@@ -341,8 +342,8 @@ NATIVE_TOOLS += sign
 # ccache
 NATIVE_TOOLS += ccache
 
-# rpcc
-NATIVE_TOOLS += rpcc
+# rpcc and tame
+NATIVE_TOOLS += rpcc tame
 
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
@@ -458,7 +459,7 @@ DYNAMIC_LINKER=${shell cd $(TOOL_INSTALL_LIB_DIR); echo ld*.so.*}
 
 # Pad dynamic linker & rpath so elftool will never have to change ELF section sizes.
 # Yes, this is a kludge.
-lots_of_slashes_to_pad_names = "//////////////////////////////////////////////////////////////"
+lots_of_slashes_to_pad_names = "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////"
 
 # When PLATFORM != native we *always* use our own versions of GLIBC and dynamic linker
 CROSS_LDFLAGS =											\
@@ -676,7 +677,8 @@ install_package =								\
 install_check_timestamp =					\
   @$(BUILD_ENV) ;						\
   inst=$(TIMESTAMP_DIR)/$(INSTALL_TIMESTAMP) ;			\
-  dirs="$(PACKAGE_BUILD_DIR)" ;					\
+  dirs="$(PACKAGE_BUILD_DIR)					\
+	$($(PACKAGE)_install_dependencies)" ;			\
   if [[ $(call find_newer_fn, $${inst}, $${dirs}, $?) ]]; then	\
     $(call build_msg_fn,Installing $(PACKAGE)) ;		\
     $(install_package) ;					\
@@ -852,10 +854,11 @@ image_install_fn =								\
 %-image_install: %-install
 	$(call image_install_fn,$(PACKAGE),$(PACKAGE_INSTALL_DIR))
 
-basic_system_image_include =				\
-  echo bin/ldd ;					\
-  echo $(arch_lib_dir)/ld*.so* ;			\
-  $(call find_shared_libs_fn, $(arch_lib_dir))
+basic_system_image_include =					\
+  $(call ifdef_fn,$(PLATFORM)_basic_system_image_include, 	\
+  echo bin/ldd ;						\
+  echo $(arch_lib_dir)/ld*.so* ;				\
+  $(call find_shared_libs_fn, $(arch_lib_dir)))
 
 basic_system_image_install =				\
   mkdir -p bin lib mnt proc root sbin sys tmp etc ;	\

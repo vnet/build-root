@@ -11,6 +11,12 @@ openssl_configure_flags += ${shell case '$(ARCH)' in \
 
 openssl_configure_flags += --prefix="$(PACKAGE_INSTALL_DIR)"
 
+OPENSSL_SHLIB_VERSION = ${shell \
+  grep 'define SHLIB_VERSION_NUMBER' \
+       $(call find_source_fn,openssl)/crypto/opensslv.h \
+  | cut --fields=3 --delimiter=' ' \
+  | sed 's/"//g' }
+
 openssl_configure = \
   rm -rf $(PACKAGE_BUILD_DIR) ; \
   mkdir -p $(PACKAGE_BUILD_DIR) ; \
@@ -18,13 +24,8 @@ openssl_configure = \
   : Copy in sources since openssl does not use GNU tools ; \
   cp --no-dereference --recursive --symbolic-link \
     $(call find_source_fn,openssl)/* . ; \
-    ./config $(openssl_configure_flags)
-
-OPENSSL_SHLIB_VERSION = ${shell \
-  grep 'define SHLIB_VERSION_NUMBER' \
-       $(call find_source_fn,openssl)/crypto/opensslv.h \
-  | cut --fields=3 --delimiter=' ' \
-  | sed 's/"//g' }
+    ./config $(openssl_configure_flags);			\
+  sed  -i -e 's/version/$(OPENSSL_SHLIB_VERSION)/' version.script
 
 openssl_make_args += LD='$(TARGET_PREFIX)ld' \
                      AR='$(TARGET_PREFIX)ar r' \
@@ -32,6 +33,8 @@ openssl_make_args += LD='$(TARGET_PREFIX)ld' \
                      RANLIB='$(TARGET_PREFIX)ranlib'
 
 openssl_make_args += LDFLAGS='$(call installed_libs_fn,zlib)'
+
+openssl_make_args += SHARED_LDFLAGS='-m64 -Wl,--version-script=version.script'
 
 # gives make errors
 openssl_make_parallel_fails = yes
