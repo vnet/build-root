@@ -38,17 +38,11 @@ gcc-bootstrap_configure_args += \
   --with-mpc-include=$(call installed_include_fn,mpc) \
   --with-mpc-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 
-# Could put $(ARCH) dependent flags here
-# For example, if $(ARCH)=foo
-# gcc-bootstrap_configure_args_foo = --enable-foo-bar
-
-gcc-bootstrap_configure_args_armiwmmxt = --with-arch=iwmmxt --with-abi=iwmmxt
-
 # Architecture dependent configure flags
-gcc-bootstrap_configure_args += $(gcc-bootstrap_configure_args_$(ARCH))
+gcc-bootstrap_configure_args += $(gcc_configure_args_$(ARCH))
 
 # Platform dependent configure flags
-gcc-bootstrap_configure_args += $(gcc-bootstrap_configure_args_$(PLATFORM))
+gcc-bootstrap_configure_args += $(gcc_configure_args_$(PLATFORM))
 
 # We need LIMITS_H_TEST=true to appease gcc/gcc/Makefile.in
 # Otherwise gcc-lib/include/limits.h will be missing #include_next <limits.h>
