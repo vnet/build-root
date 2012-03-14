@@ -7,15 +7,15 @@ LINUX_MAKEFILE_ARCH =				\
       (*) echo '$(ARCH)' ;;			\
      esac }
 
-LINUX_ARCH = \
+LINUX_ARCH =										\
   $(if $($(PLATFORM)_linux_arch),$($(PLATFORM)_linux_arch),$(LINUX_MAKEFILE_ARCH))
 
 linux_build_dir = linux-$(PLATFORM)
 
-LINUX_MAKE = \
-  $(MAKE) -C $(call find_source_fn,linux) \
-    O=$(PACKAGE_BUILD_DIR) \
-    ARCH=$(LINUX_ARCH) \
+LINUX_MAKE =						\
+  $(MAKE) -C $(call find_source_fn,$(PACKAGE_SOURCE))	\
+    O=$(PACKAGE_BUILD_DIR)				\
+    ARCH=$(LINUX_ARCH)					\
     CROSS_COMPILE=$(TARGET)-
 
 linux_config_files_for_platform =							\

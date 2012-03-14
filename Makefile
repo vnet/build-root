@@ -165,7 +165,7 @@ is_native = $(if $(ARCH:native=),,true)
 not_native = $(if $(ARCH:native=),true,)
 
 ARCH_TARGET_tmp = $(call ifdef_fn,$(ARCH)_target,$(ARCH)-$(OS))
-TARGET = $(call ifdef_fn,$(PLATFORM)_target,$(ARCH_TARGET_tmp))
+TARGET = $(strip $(call ifdef_fn,$(PLATFORM)_target,$(ARCH_TARGET_tmp)))
 TARGET_PREFIX = $(if $(not_native),$(TARGET)-,)
 
 ######################################################################
@@ -218,13 +218,7 @@ tool_or_package_fn = $(if $(is_build_tool),tool,package)
 
 # Directory where packages are built & installed
 BUILD_DIR = $(MU_BUILD_ROOT_DIR)/$(BUILD_PREFIX_$(call tool_or_package_fn))$(ARCH)
-
-## BURT
-# we will deprecate INSTALL_DIR shortly for DFLT_INSTALL_DIR
 INSTALL_DIR = $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
-# DFLT_INSTALL_DIR used in platforms.mk for $(PLATFORM)_DESTDIR_BASE
-DFLT_INSTALL_DIR := $(MU_BUILD_ROOT_DIR)/$(INSTALL_PREFIX)$(ARCH)
-## BURT
 
 PLATFORM_IMAGE_DIR = $(MU_BUILD_ROOT_DIR)/$(IMAGES_PREFIX)$(PLATFORM)
 
@@ -286,16 +280,6 @@ package_dir_fn = \
 
 package_mk_fn = $(call package_dir_fn,$(1))/$(1).mk
 
-### BURT
-
-#next version
-#pkgPhaseDependMacro = $(foreach x,configure build install,                  \
-			$(eval $(1)_$(x)_depend := $($(1)_depend:%=%-$(x))))
-#version equivalent to original code
-pkgPhaseDependMacro = $(eval $(1)_configure_depend := $($(1)_depend:%=%-install))
-
-### BURT
-
 # Pick up built-root/pre-package-include.mk for all source directories
 $(foreach d,$(SOURCE_PATH_BUILD_ROOT_DIRS),	\
   $(eval -include $(d)/pre-package-include.mk))
@@ -324,8 +308,12 @@ IS_LINUX = $(if $(findstring no,$($(PLATFORM)_uses_linux)),no,yes)
 
 NATIVE_TOOLS_$(IS_LINUX) += $(NATIVE_TOOLS_LINUX)
 
-# only build glibc for linux installs
-CROSS_TOOLS_$(IS_LINUX) += glibc gcc
+CROSS_TOOLS_$(IS_LINUX) += gcc
+
+# Choose a C library for platform
+libc_for_platform = $(call ifdef_fn,$(PLATFORM)_libc,glibc)
+
+CROSS_TOOLS_$(IS_LINUX) += $(libc_for_platform)
 
 # must be first for bootstrapping
 NATIVE_TOOLS = findutils make spp
@@ -336,14 +324,8 @@ NATIVE_TOOLS += git automake autoconf libtool texinfo bison flex tar
 # needed to compile gcc
 NATIVE_TOOLS += mpfr gmp mpc
 
-# Tool to sign binaries
-NATIVE_TOOLS += sign
-
 # ccache
 NATIVE_TOOLS += ccache
-
-# rpcc and tame
-NATIVE_TOOLS += rpcc tame
 
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
@@ -510,28 +492,7 @@ CONFIGURE_ENV =								\
 	 LDFLAGS="$(LDFLAGS) $(call configure_ldflags_fn)")		\
     $(if $($(PACKAGE)_configure_env),$($(PACKAGE)_configure_env))
 
-### BURT
-# only partially used now (used in a few .mk files)
-ifeq ($(is_build_tool),yes)
-prefix     = $(PACKAGE_INSTALL_DIR)
-libdir     = $(PACKAGE_INSTALL_DIR)/$(arch_lib_dir)
-libexecdir = $(PACKAGE_INSTALL_DIR)/usr/libexec
-DESTDIR     = /
-else
-# Eventually simplify this with no per package DESTDIR or prefix
-ppdMacro = $(if $(PER_PACKAGE_DESTDIR),$(call package_build_dir_fn,$(1)))
-pppMacro = $(if $(PER_PACKAGE_PREFIX),$(call package_build_dir_fn,$(1)))
-prefixMacro     = $($(PLATFORM)_PREFIX_BASE)/$(pppMacro)
-prefix = $(call prefixMacro,$(PACKAGE))
-libdir     = $($(PLATFORM)_LIBDIR)
-libexecdir = $($(PLATFORM)_LIBEXECDIR)
-destdirMacro  = $($(PLATFORM)_DESTDIR_BASE)$(ppdMacro)
-DESTDIR  = $(call destdirMacro,$(PACKAGE))
-endif
-### BURT
-### dbarach
 image_extra_dependencies = $($(PLATFORM)_image_extra_dependencies)
-### dbarach
 
 configure_package_gnu =						\
   s=$(call find_source_fn,$(PACKAGE_SOURCE)) ;			\
@@ -560,7 +521,7 @@ configure_package =							\
 # Tools (e.g. gcc, binutils, gdb) required a platform to build for
 check_platform =								\
   is_tool="$(is_build_tool)" ;							\
-  is_cross_package="$(findstring $(PACKAGE),$(CROSS_TOOLS))" ;			\
+  is_cross_package="$(filter $(PACKAGE),$(CROSS_TOOLS))" ;			\
   is_arch_native="$(if $(subst native,,$(ARCH)),,yes)" ;			\
   if [ "$${is_tool}" == "yes"							\
        -a "$${is_cross_package}" != ""						\
@@ -698,15 +659,24 @@ install_check_timestamp =					\
 GIT = git
 
 # Maps package name to source directory root.
+#
 # Multiple packages may use a single source tree.
 # For example, gcc-bootstrap package shares gcc source.
-PACKAGE_SOURCE = $(if $($(PACKAGE)_source),$($(PACKAGE)_source),$(PACKAGE))
+#
+# Also, allow platforms to override source directory for a given package:
+# for example, you can have multiple linux kernel sources for different platforms.
+PACKAGE_SOURCE = $(strip			\
+  $(if $($(PLATFORM)_$(PACKAGE)_source),	\
+    $($(PLATFORM)_$(PACKAGE)_source),		\
+    $(if $($(PACKAGE)_source),			\
+      $($(PACKAGE)_source),			\
+      $(PACKAGE))))
 
 # Use git to download source if directory is not found
 find_source_for_package =									\
   @$(BUILD_ENV) ;										\
   $(call build_msg_fn,Arch for platform '$(PLATFORM)' is $(ARCH)) ;				\
-  $(call build_msg_fn,Finding source for $(PACKAGE)) ;						\
+  $(call build_msg_fn,Finding source for $(PACKAGE) in directory $(PACKAGE_SOURCE)) ;		\
   s="$(call find_source_fn,$(PACKAGE_SOURCE))" ;						\
   [[ -z "$${s}" ]]										\
     && $(call build_msg_fn,Package $(PACKAGE) not found with path $(SOURCE_PATH))		\

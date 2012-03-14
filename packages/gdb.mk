@@ -15,6 +15,8 @@ gdb_configure_args += --with-uiout=no
 # gdb currently does not compile with -Werror for gcc-3.4.2
 gdb_configure_args += --disable-werror
 
+gdb_LDFLAGS = -L$(TOOL_INSTALL_DIR)/lib$(native_libdir)
+
 gdb_configure_host_and_target = --target=$(TARGET)
 
 gdb_make_parallel_fails = yes
