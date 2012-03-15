@@ -19,9 +19,9 @@ LINUX_MAKE =						\
     CROSS_COMPILE=$(TARGET)-
 
 linux_config_files_for_platform =							\
-  $(call find_package_file_fn,linux,linux-default-$(LINUX_MAKEFILE_ARCH).config)	\
-  $(call find_package_file_fn,linux,linux-$(ARCH).config)				\
-  $(call find_package_file_fn,linux,linux-$(PLATFORM).config)
+  $(call find_build_data_file_fn,packages/linux-default-$(LINUX_MAKEFILE_ARCH).config)	\
+  $(call find_build_data_file_fn,packages/linux-$(ARCH).config)				\
+  $(call find_build_data_file_fn,packages/linux-$(PLATFORM).config)
 
 # Copy pre-built linux config into compile directory
 # Move include files to install area for compiling glibc
