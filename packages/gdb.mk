@@ -19,4 +19,3 @@ gdb_LDFLAGS = -L$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 
 gdb_configure_host_and_target = --target=$(TARGET)
 
-gdb_make_parallel_fails = yes
