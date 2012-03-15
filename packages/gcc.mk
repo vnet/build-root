@@ -1,5 +1,5 @@
 # GCC install depends on ranlib from binutils
-gcc_configure_depend = $(libc_for_platform)-install binutils-install
+gcc_configure_depend = $(libc_for_platform)-bootstrap-install binutils-install
 
 gcc_configure_host_and_target = --target=$(TARGET)
 
@@ -13,7 +13,7 @@ gcc_configure_env += $(gcc_configure_env_$(ARCH))
 
 gcc_configure_args += --enable-multilib=no
 
-gcc_configure_args += --enable-languages=c
+gcc_configure_args += --enable-languages=c,c++
 
 # Newer versions of GCC depend on MPFR/GMP libraries
 gcc_configure_args += \
@@ -26,8 +26,6 @@ gcc_configure_args += \
 # Could put $(ARCH) dependent flags here
 # For example, if $(ARCH)=foo
 # gcc_configure_args_foo = --enable-foo-bar
-
-gcc_configure_args_armiwmmxt = --with-arch=iwmmxt --with-abi=iwmmxt
 
 # Architecture dependent configure flags
 gcc_configure_args += $(gcc_configure_args_$(ARCH))
