@@ -327,11 +327,17 @@ NATIVE_TOOLS += mpfr gmp mpc
 # ccache
 NATIVE_TOOLS += ccache
 
+# needed for newer glibc compiler (rather than system awk)
+NATIVE_TOOLS += gawk
+
+# needed to sign binaries and for elftool
+NATIVE_TOOLS += sign
+
 # Tools needed on native host to build for platform
 NATIVE_TOOLS += $(call ifdef_fn,$(PLATFORM)_native_tools,)
 
 # Tools for cross-compiling from native -> ARCH
-CROSS_TOOLS = binutils gcc-bootstrap gdb
+CROSS_TOOLS = binutils gcc gdb
 
 # Tools needed on native host to build for platform
 CROSS_TOOLS += $(call ifdef_fn,$(PLATFORM)_cross_tools,)
@@ -453,7 +459,7 @@ cross_ldflags = $(if $(is_native)$(is_build_tool),,$(CROSS_LDFLAGS) )
 # $(call installed_libs_fn,PACKAGE)
 # Return install library directory for given package.
 # Some packages (e.g. openssl) don't install under lib64; instead they use lib
-define installed_lib_fn
+define installed_lib_dir_fn
 $(call if_directory_exists_fn,
   $(call package_install_dir_fn,$(1))/$(arch_lib_dir),
   $(call package_install_dir_fn,$(1))/lib)
@@ -462,13 +468,13 @@ endef
 # Set -L and rpath to point to dependent libraries previously built by us.
 installed_libs_fn =					\
   $(foreach i,$(1),					\
-    -L$(call installed_lib_fn,$(i))			\
-    -Wl,-rpath -Wl,$(call installed_lib_fn,$(i)))
+    -L$(call installed_lib_dir_fn,$(i))			\
+    -Wl,-rpath -Wl,$(call installed_lib_dir_fn,$(i)))
 
 # As above for include files
-installed_include_fn = $(call package_install_dir_fn,$(1))/include
+installed_include_dir_fn = $(call package_install_dir_fn,$(1))/include
 
-installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_fn,$(i)))
+installed_includes_fn = $(foreach i,$(1),-I$(call installed_include_dir_fn,$(i)))
 
 # By default package CPPFLAGS (to set include path -I) and LDFLAGS (to set link path -L)
 # point at dependent install directories.
@@ -910,8 +916,7 @@ $(PLATFORM_IMAGE_DIR)/ro.img ro-image: $(patsubst %,%-find-source,$(ROOT_PACKAGE
 	  else								\
 	      echo @@@@ NOT stripping symbols @@@@ ;			\
 	  fi ;								\
-	  if [ $${sign_executables:-yes} = 'yes'			\
-	       -a -n "$($(PLATFORM)_public_key)" ] ; then		\
+	  if [ $${sign_executables:-no} = 'yes' ] ; then		\
 	      echo @@@@ Signing executables @@@@ ;			\
 	      find $${tmp_dir} -type f					\
 		| xargs sign $($(PLATFORM)_public_key)			\
@@ -995,15 +1000,20 @@ images: linuxrc-install linux-install $(image_extra_dependencies) rw-image
 	d=$(PLATFORM_IMAGE_DIR) ;				\
 	cd $(BUILD_DIR)/linux-$(PLATFORM) ;			\
 	i="" ;							\
-	[[ -z $$i && -f bzImage ]] && i=bzImage ;		\
-	[[ -z $$i && -f zImage ]] && i=zImage ;			\
-	[[ -z $$i && -f linux ]] && i=linux ;			\
-	[[ -z $$i && -f vmlinux ]] && i=vmlinux ;		\
-	[[ -z $$i ]]						\
-	  && $(call build_msg_fn,no linux image to install	\
+	if [[ -n "$($(PLATFORM)_linux_build_image)" ]] ; then	\
+	  i=`find . -name $($(PLATFORM)_linux_build_image)`;	\
+	  cp $$i $$d/`basename $$i`.$(linuxrc_initrd_type) ;	\
+	else							\
+	  [[ -z $$i && -f bzImage ]] && i=bzImage ;		\
+	  [[ -z $$i && -f zImage ]] && i=zImage ;		\
+	  [[ -z $$i && -f linux ]] && i=linux ;			\
+	  [[ -z $$i && -f vmlinux ]] && i=vmlinux ;		\
+	  [[ -z $$i ]]						\
+	    && $(call build_msg_fn,no linux image to install	\
 		in $(BUILD_DIR)/linux-$(PLATFORM))		\
-	  && exit 1 ;						\
-	cp $$i $$d
+	    && exit 1 ;						\
+	  cp $$i $$d ;						\
+	fi
 
 ######################################################################
 # Tool chain build/install
