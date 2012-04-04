@@ -17,11 +17,14 @@ gcc_configure_args += --enable-languages=c,c++
 
 # Newer versions of GCC depend on MPFR/GMP libraries
 gcc_configure_args += \
-  --with-mpfr-include=$(call installed_include_fn,mpfr) \
+  --with-mpfr-include=$(call installed_include_dir_fn,mpfr) \
   --with-mpfr-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 gcc_configure_args += \
-  --with-gmp-include=$(call installed_include_fn,gmp) \
+  --with-gmp-include=$(call installed_include_dir_fn,gmp) \
   --with-gmp-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
+gcc_configure_args += \
+  --with-mpc-include=$(call installed_include_dir_fn,mpc) \
+  --with-mpc-lib=$(TOOL_INSTALL_DIR)/lib$(native_libdir)
 
 # Could put $(ARCH) dependent flags here
 # For example, if $(ARCH)=foo
