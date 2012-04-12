@@ -42,11 +42,12 @@ ABSOLUTE_SOURCE_PATH = $(foreach d,$(SOURCE_PATH),$(shell cd $(d) && pwd))
 
 SOURCE_PATH_BUILD_ROOT_DIRS = $(addsuffix /$(MU_BUILD_NAME),$(ABSOLUTE_SOURCE_PATH))
 SOURCE_PATH_BUILD_DATA_DIRS = $(addsuffix /$(MU_BUILD_DATA_DIR_NAME),$(ABSOLUTE_SOURCE_PATH))
+SOURCE_PATH_PLUS_MAIN_BUILD_ROOT_DIRS = $(SOURCE_PATH_BUILD_ROOT_DIRS) $(MU_BUILD_ROOT_DIR)
 
 # For tools use build-root as source path, otherwise use given source path
-FIND_SOURCE_PATH =						\
-  $(if $(is_build_tool),					\
-    $(SOURCE_PATH_BUILD_ROOT_DIRS) $(MU_BUILD_ROOT_DIR),	\
+FIND_SOURCE_PATH =				\
+  $(if $(is_build_tool),			\
+    $(SOURCE_PATH_PLUS_MAIN_BUILD_ROOT_DIRS),	\
     $(SOURCE_PATH_BUILD_DATA_DIRS))
 
 # First search given source path, then default to build-root
@@ -121,6 +122,14 @@ find_build_data_file_fn = $(shell				\
   done ;							\
   echo "")
 
+find_build_root_file_fn = $(shell				\
+  set -eu$(BUILD_DEBUG) ;					\
+  for d in $(SOURCE_PATH_PLUS_MAIN_BUILD_ROOT_DIRS) ; do	\
+    f="$${d}/$(1)" ;						\
+    [[ -f $${f} ]] && echo `cd $${d} && pwd`/$(1) && exit 0 ;	\
+  done ;							\
+  echo "")
+
 ######################################################################
 # ARCH, PLATFORM
 ######################################################################
@@ -128,8 +137,15 @@ find_build_data_file_fn = $(shell				\
 NATIVE_ARCH = $(shell gcc -dumpmachine | sed -e 's/\([a-zA-Z_0-9]*\)-.*/\1/')
 
 # Find all platforms.mk that we can, including those from build-root
-$(foreach d,$(FULL_SOURCE_PATH), \
-  $(eval -include $(d)/platforms.mk))
+# Record directory that first defines $(PLATFORM)_arch is build-data directory for platform
+$(foreach d,$(FULL_SOURCE_PATH),						\
+  $(eval -include $(d)/platforms.mk)						\
+  $(if										\
+    $(and $(call ifdef3_fn,$(PLATFORM)_arch,,yes),				\
+          $(call ifdef3_fn,_mu_build_data_dir_for_platform_$(PLATFORM),yes,)),	\
+    $(eval _mu_build_data_dir_for_platform_$(PLATFORM) = $(d))))
+
+find_build_data_dir_for_platform_fn = $(call ifdef_fn,_mu_build_data_dir_for_platform_$(1),)
 
 # Platform should be defined somewhere by specifying $($(PLATFORM)_arch)
 ARCH = $(strip $($(PLATFORM)_arch))
@@ -298,9 +314,11 @@ NATIVE_TOOLS_LINUX =				\
   e2fsimage					\
   e2fsprogs					\
   fakeroot					\
+  grub						\
   jffs2						\
   mkimage					\
   zlib						\
+  xorriso					\
   xz						\
   squashfs
 
