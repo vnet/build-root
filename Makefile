@@ -318,7 +318,7 @@ NATIVE_TOOLS_LINUX =				\
   jffs2						\
   mkimage					\
   zlib						\
-  xorriso					\
+  xoriso					\
   xz						\
   squashfs
 
