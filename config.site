@@ -9,6 +9,7 @@ libc_cv_ssp=no
 # fixes gentoo build; not sure why?
 libc_cv_uname_release=""
 libc_cv_uname_version=""
+ac_cv_header_cpuid_h=yes
 
 ######################################################################
 # bash
@@ -103,3 +104,8 @@ ac_cv_func_realloc_0_nonnull=yes
 # util-linux
 ######################################################################
 scanf_cv_alloc_modifier=no
+
+######################################################################
+# dhcp
+######################################################################
+ac_cv_file__dev_random=yes
