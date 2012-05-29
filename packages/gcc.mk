@@ -11,9 +11,15 @@ gcc_configure_env_x86_64 += GCC_CANADIAN_CROSS_LIB_SUFFIX=64
 
 gcc_configure_env += $(gcc_configure_env_$(ARCH))
 
+# Remove unneeded stuff
+gcc_configure_args = --disable-nls
 gcc_configure_args += --enable-multilib=no
+gcc_configure_args += --disable-libmudflap
+gcc_configure_args += --disable-libssp
+gcc_configure_args += --disable-libgomp
+gcc_configure_args += --disable-libquadmath
 
-gcc_configure_args += --enable-languages=c,c++
+gcc_configure_args += --enable-languages=c
 
 # Newer versions of GCC depend on MPFR/GMP libraries
 gcc_configure_args += \
